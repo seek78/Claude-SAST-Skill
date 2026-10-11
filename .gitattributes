@@ -1,0 +1,2 @@
+# Le fixture dei test si confrontano byte per byte: nessuna conversione dei fine riga.
+tests/fixtures/** -text

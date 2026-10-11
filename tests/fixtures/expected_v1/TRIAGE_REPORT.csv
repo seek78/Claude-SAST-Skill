@@ -1,0 +1,8 @@
+﻿ID;Titolo;Gravità scanner;Verdetto;File;Riga;Sintesi;Difetto presente;Prove mancanti
+AS-001;SQL Injection;High;High;Src/Demo.Shop/Persistence/OrderRepository.cs;17;Il termine di ricerca arriva dalla query string e finisce nel testo SQL tramite string.Format: SQL injection raggiungibile senza autenticazione.;;
+AS-002;SQL Injection;High;False Positive;Src/Demo.Shop/Persistence/OrderRepository.cs;28;"Il valore inserito con string.Format è un intero: nessuna iniezione possibile. Resta un difetto reale (SQL composto a mano) senza impatto di sicurezza; lo scanner segnala lo schema string.Format su CommandText.";Sì;
+AS-003;Weak cipher algorithm detected;Medium;Medium;Src/Demo.Shop/Infrastructure/Crypto.cs;9;"Crypto usa DES, algoritmo debole; la chiave è fornita dal chiamante. Impatto parziale: serve l'accesso ai dati cifrati.";;
+AS-004;Debug mode enabled in ASP.NET project configuration;High;Unknown - Needs Review;Src/Demo.Shop/Web.config;4;Web.config ha debug=true, ma non c'è una trasformazione di rilascio: il valore effettivo in esercizio non è noto.;;Manca la trasformazione di configurazione usata per il rilascio (Web.Release.config).
+AS-005;Throwing generic exceptions in C#;Low;False Positive;Src/Demo.Shop/Services/ReportService.cs;11;"L'eccezione generica ha un messaggio statico e non espone dati; lo scanner segnala l'uso del tipo Exception.";No;
+OBS-001;Nessun redirect da HTTP a HTTPS;;Low;Src/Demo.Shop/Web.config;9;Le regole di rewrite sono vuote: la configurazione del sito non forza HTTPS.;;
+OBS-002;Path traversal nel download dei report;;High;Src/Demo.Shop/Web/ReportController.cs;13;Security review: il nome del file arriva dalla richiesta e viene unito alla cartella dei report senza controlli, permettendo la lettura di file arbitrari.;;
