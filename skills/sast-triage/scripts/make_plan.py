@@ -4,14 +4,17 @@
 Uso:
   python make_plan.py --parsed parsed.json --input plan-input.json -o PIANO_TRIAGE.md
 
-  --parsed  uscita di parse_appscan.py (conteggi, nome del progetto e del report, XML/SCA: li calcola lo script)
+  --parsed  uscita di parse_appscan.py o di parse_sarif.py (conteggi, nome del progetto e del report, XML/SCA:
+            li calcola lo script)
   --input   contenuti di giudizio di Claude (templates/plan-input.json): contesto rilevato, gruppi di analisi
             con un breve motivo, al massimo 3 controlli trasversali, al massimo 2 punti aperti
   -o        file di uscita
 
 Sezioni fisse, nello stesso ordine: Input · Contesto · Scanner · Gruppi di analisi · Verifiche standard oltre lo
-scanner · Controlli trasversali · Punti aperti · Approvazione. Stesso input => stessi byte (UTF-8, fine riga "\\n",
-nessuna data o ora corrente, gruppi e id ordinati per numero). Ogni finding del report deve stare in un solo gruppo.
+scanner · Controlli trasversali · Punti aperti · Approvazione. Le verifiche standard terminano con la riga della terza
+analisi (security review, references/security-review.md), che fa parte del piano da approvare.
+Stesso input => stessi byte (UTF-8, fine riga "\\n", nessuna data o ora corrente, gruppi e id ordinati per numero).
+Ogni finding del report deve stare in un solo gruppo.
 
 Esito: 0 scritto | 1 contenuti non validi (nessun file scritto) | 2 uso errato o file illeggibile
 """
@@ -33,6 +36,9 @@ CTX_KEYS = ("stack", "exposure", "exposure_detail", "release_model", "constraint
 GROUP_KEYS = ("name", "reason", "finding_ids")
 MAX_TRANSVERSAL, MAX_OPEN = 3, 2
 MAX_NAME, MAX_TEXT = 80, 200
+SECURITY_REVIEW = ("Terza analisi, dopo le verifiche standard: security review di tutta la cartella dei sorgenti con il "
+                   "metodo di `/security-review` di Claude Code. Solo le vulnerabilità confermate diventano `OBS`, senza "
+                   "duplicare finding o altre `OBS`.")
 
 
 def one_line(text):
@@ -137,7 +143,14 @@ def render(data, parsed):
     src = parsed.get("sources")
     L.append("- Sorgenti: {0}".format("file del report trovati {0} su {1}".format(src["found"], len(findings)) if src else "non verificati"))
     xml = parsed.get("xml")
-    L.append("- XML: {0}".format("{0} finding abbinati su {1}".format(xml["matched"], len(findings)) if xml else "non fornito"))
+    if xml:
+        xml_text = "{0} finding abbinati su {1}".format(xml["matched"], len(findings))
+    elif parsed.get("sarif"):
+        xml_text = "non previsto con il SARIF (tracce dai codeFlows: {0} finding su {1})".format(
+            sum(1 for f in findings if f.get("trace")), len(findings))
+    else:
+        xml_text = "non fornito"
+    L.append("- XML: {0}".format(xml_text))
     sca = parsed.get("sca_summary")
     L.append("- SCA: {0}".format("{0} problemi (solo contesto)".format(sca["total"]) if sca else "non fornito"))
     L += ["", "## Contesto"]
@@ -159,6 +172,7 @@ def render(data, parsed):
           "", "## Verifiche standard oltre lo scanner",
           " · ".join(AREA_LABELS[a] for a in AREAS), "",
           "Dopo i finding. Non è un audit generale: producono solo osservazioni `OBS` confermate, separate dai finding.",
+          "", SECURITY_REVIEW,
           "", "## Controlli trasversali"]
     L += ["- {0}".format(one_line(c)) for c in data["transversal_checks"]] or ["Nessuno."]
     L += ["", "## Punti aperti"]
@@ -182,7 +196,7 @@ def main(argv=None):
     for s in (sys.stdout, sys.stderr):
         s.reconfigure(errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--parsed", required=True, help="uscita di parse_appscan.py")
+    ap.add_argument("--parsed", required=True, help="uscita di parse_appscan.py o di parse_sarif.py")
     ap.add_argument("--input", required=True, help="contenuti del piano (plan-input.json)")
     ap.add_argument("-o", "--output", required=True, help="PIANO_TRIAGE.md di uscita")
     args = ap.parse_args(argv)
@@ -191,7 +205,8 @@ def main(argv=None):
         return 2
     if not isinstance(parsed, dict) or not isinstance(parsed.get("findings"), list) or not parsed["findings"] \
             or not filled(parsed.get("project_name")) or not filled(parsed.get("report")):
-        print("Errore: parsed.json non è valido o manca project_name: riesegui parse_appscan.py con --sources.", file=sys.stderr)
+        print("Errore: parsed.json non è valido o manca project_name: riesegui parse_appscan.py o parse_sarif.py "
+              "con --sources.", file=sys.stderr)
         return 2
     errors = validate_input(data, parsed)
     if errors:

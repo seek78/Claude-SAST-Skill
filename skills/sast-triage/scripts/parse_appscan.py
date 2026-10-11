@@ -205,9 +205,42 @@ def check_declared_counts(sections, findings, warnings):
 
 # ---------------------------------------------------------------- sorgenti
 
-def resolve_files(findings, sources):
-    """Rende i percorsi relativi ai sorgenti: toglie i segmenti iniziali (radice di scansione)
-    finché il file esiste; in alternativa cerca un file con lo stesso nome, se unico."""
+_CLASS_NAME = re.compile(r"^[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+$")
+
+
+def by_class_name(path, index):
+    """Nome di classe qualificato usato al posto del file (es. 'Azienda.Modulo.Repositories.OrderRepository.cs',
+    come nel SARIF di AppScan per il codice compilato): cerca 'OrderRepository.cs' e, se più file hanno quel nome,
+    sceglie quello le cui cartelle finali corrispondono al namespace. Restituisce (percorso, esito)."""
+    stem, _, ext = path.rpartition(".")
+    if "/" in path or not ext or not _CLASS_NAME.match(stem):
+        return path, "not_found"
+    names = stem.split(".")
+    for k in range(len(names) - 1, 0, -1):
+        same = index.get((".".join(names[k:]) + "." + ext).lower(), [])
+        if not same:
+            continue
+        namespace = [n.lower() for n in names[:k]]
+
+        def score(rel):
+            folders = ".".join(rel.split("/")[:-1]).lower().split(".")
+            s = 0
+            while s < min(len(namespace), len(folders)) and folders[-1 - s] == namespace[-1 - s]:
+                s += 1
+            return s
+
+        scores = {rel: score(rel) for rel in same}
+        best = max(scores.values())
+        top = [rel for rel in same if scores[rel] == best]
+        return (top[0], "class") if len(top) == 1 else (path, "ambiguous")
+    return path, "not_found"
+
+
+def make_resolver(sources, class_names=False):
+    """Restituisce resolve(percorso) -> (percorso, esito), con esito path | basename | class | ambiguous | not_found.
+    Rende il percorso relativo ai sorgenti: toglie i segmenti iniziali (radice di scansione) finché il file esiste;
+    in alternativa cerca un file con lo stesso nome, se unico. Con class_names prova anche i nomi di classe
+    qualificati (by_class_name)."""
     index = {}
 
     def build_index():
@@ -217,22 +250,29 @@ def resolve_files(findings, sources):
                 rel = os.path.relpath(os.path.join(root, n), sources).replace("\\", "/")
                 index.setdefault(n.lower(), []).append(rel)
 
-    counts = Counter()
-    for f in findings:
-        parts = f["file"].split("/")
-        match = "not_found"
+    def resolve(path):
+        parts = path.split("/")
         for k in range(len(parts)):
             if os.path.isfile(os.path.join(sources, *parts[k:])):
-                f["file"], match = "/".join(parts[k:]), "path"
-                break
-        if match == "not_found":
-            if not index:
-                build_index()
-            same = index.get(parts[-1].lower(), [])
-            if len(same) == 1:
-                f["file"], match = same[0], "basename"
-            elif len(same) > 1:
-                match = "ambiguous"
+                return "/".join(parts[k:]), "path"
+        if not index:
+            build_index()
+        same = index.get(parts[-1].lower(), [])
+        if len(same) == 1:
+            return same[0], "basename"
+        if len(same) > 1:
+            return path, "ambiguous"
+        return by_class_name(path, index) if class_names else (path, "not_found")
+
+    return resolve
+
+
+def resolve_files(findings, sources):
+    """Rende i percorsi dei finding relativi ai sorgenti (make_resolver) e registra l'esito in file_match."""
+    resolve = make_resolver(sources)
+    counts = Counter()
+    for f in findings:
+        f["file"], match = resolve(f["file"])
         f["file_match"] = match
         counts["found" if match in ("path", "basename") else "not_found"] += 1
     return {"checked": True, "found": counts["found"], "not_found": counts["not_found"]}

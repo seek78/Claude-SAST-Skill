@@ -2,16 +2,16 @@
 
 ## 1. Cos'è SAST Claude Toolkit
 
-Il toolkit aiuta a rivalutare i risultati di una scansione SAST **HCL AppScan** confrontandoli con il codice sorgente e con le prove disponibili, e a preparare correzioni controllate.
+Il toolkit aiuta a rivalutare i risultati di una scansione SAST **HCL AppScan** (o di un altro strumento che esporta **SARIF**) confrontandoli con il codice sorgente e con le prove disponibili, e a preparare correzioni controllate.
 
-- **Non sostituisce AppScan**: lo scanner trova i finding, il toolkit li rivaluta.
+- **Non sostituisce lo scanner**: lo scanner trova i finding, il toolkit li rivaluta e aggiunge una security review di tutti i sorgenti.
 - La gravità dello scanner è un **input**, non il verdetto finale: ogni finding viene riaperto sul sorgente.
 - Le correzioni sono **proposte**: tu le rivedi e le applichi.
 - Resti sempre tu a decidere: ci sono approvazioni esplicite prima del triage e prima di ogni fix.
 
 Due skill di Claude Code:
 
-- **`sast-triage`**: stabilisce, per ogni finding, se il problema è reale e quanto è grave.
+- **`sast-triage`**: stabilisce, per ogni finding, se il problema è reale e quanto è grave; poi esegue le verifiche standard e la security review.
 - **`sast-remediation`**: legge il risultato del triage e prepara, un finding alla volta, piano di fix, modifica proposta e verifica.
 
 **Il toolkit non modifica mai automaticamente i sorgenti.**
@@ -21,8 +21,8 @@ Due skill di Claude Code:
 - Claude Code.
 - Python 3, disponibile come `python` o `python3`. Nessun pacchetto Python di terze parti.
 - Il codice sorgente dell'applicazione.
-- Il report AppScan in **CSV** (obbligatorio).
-- Il report AppScan **XML** e il report **SCA** (facoltativi).
+- Il report dello scanner (obbligatorio): AppScan in **CSV**, con il report AppScan **XML** facoltativo, **oppure** un file **SARIF 2.1.0** di AppScan o di un altro strumento SAST.
+- Il report **SCA** (facoltativo).
 
 Git non è obbligatorio.
 
@@ -81,7 +81,7 @@ in
 → contesto rilevato
 → piano
 → approvazione
-→ triage
+→ triage (finding, verifiche standard, security review)
 → report + triage.json
 
 /sast-remediation
@@ -109,9 +109,22 @@ Claude chiede «Come vuoi indicarmi i file?»:
 Servono sempre:
 
 - la **cartella dei sorgenti**;
-- il **report AppScan CSV**.
+- il **report dello scanner**: il **CSV AppScan** oppure un file **SARIF** (sono alternativi: se ne indichi entrambi, Claude chiede quale usare).
 
-Sono facoltativi il report **XML**, il report **SCA** e una baseline o un contesto aggiuntivo (vincoli, un triage precedente: è solo contesto e non decide mai il verdetto).
+Sono facoltativi il report **XML** (solo con il CSV), il report **SCA** e una baseline o un contesto aggiuntivo (vincoli, un triage precedente: è solo contesto e non decide mai il verdetto).
+
+### Report SARIF
+
+Il SARIF sostituisce la coppia CSV + XML: contiene i finding e, nei `codeFlows`, le tracce dei flussi di dati. Va bene l'export SARIF di AppScan (on Cloud, 360°, Source) o il SARIF 2.1.0 di un altro strumento SAST. Lo legge `parse_sarif.py`, che produce gli stessi dati intermedi del CSV: piano, report, CSV e `triage.json` hanno lo stesso formato.
+
+- **Un finding per risultato**, nell'ordine del file, numerati `AS-001`, `AS-002`… anche se il SARIF non viene da AppScan.
+- **Gravità dello scanner**, sulla scala `Critical` · `High` · `Medium` · `Low` · `Informational`, presa nell'ordine da:
+  1. il campo di gravità dello strumento (es. `properties.Severity` di AppScan);
+  2. `security-severity` (punteggio CVSS: da 9.0 `Critical`, da 7.0 `High`, da 4.0 `Medium`, da 0.1 `Low`);
+  3. `level` (`error` `High`, `warning` `Medium`, `note` `Low`, `none` `Informational`).
+- **File**: i percorsi diventano relativi ai sorgenti come per il CSV. Per il codice compilato AppScan indica la classe invece del file (es. `Azienda.Modulo.Repositories.OrderRepository.cs`): il parser trova `OrderRepository.cs` nella cartella che corrisponde al namespace.
+- **Esclusi**, e contati: i risultati soppressi nello strumento (salvo richiesta esplicita), quelli non più presenti (`baselineState` `absent`) e quelli che non sono problemi (`kind` `pass`, `notApplicable`, `informational`).
+- **Data del report**: quella dichiarata negli `invocations`. L'export SARIF di AppScan non la riporta: nel report compare «data non disponibile».
 
 Ti viene chiesta l'**esposizione**, una tra:
 
@@ -125,7 +138,7 @@ Il modo di rilascio viene dedotto dal progetto e mostrato come «Rilascio: … (
 Poi Claude:
 
 1. ispeziona le prove disponibili (progetto, build, rilascio) e **mostra il contesto rilevato**, che puoi correggere;
-2. crea `sast-output/triage/PIANO_TRIAGE.md` (gruppi di analisi, cinque verifiche standard, controlli previsti, nessun verdetto);
+2. crea `sast-output/triage/PIANO_TRIAGE.md` (gruppi di analisi, cinque verifiche standard, security review, controlli previsti, nessun verdetto);
 3. **mostra in chat il piano completo**, identico al file;
 4. si ferma e aspetta.
 
@@ -148,7 +161,9 @@ Verdetti canonici: `High`, `Medium`, `Low`, `False Positive`, `Unknown - Needs R
 - Il codice pubblico di una **libreria condivisa** non è considerato irraggiungibile solo perché nel prodotto analizzato non ha chiamanti: se i consumatori esterni non si possono accertare, il verdetto è `Unknown - Needs Review`.
 - Costo e difficoltà della correzione non cambiano mai il verdetto.
 
-Dopo i finding Claude esegue **cinque verifiche standard**, uguali per tutti i software: autenticazione e autorizzazione degli endpoint esposti; segreti; trasporto e CORS; SQL e comandi; crittografia. Per ogni area l'esito è: nessuna osservazione confermata, una o più osservazioni, oppure non verificabile con le prove disponibili. Solo i problemi **confermati** diventano `OBS-xxx`, separati dai finding AppScan. Non è un audit generale.
+Dopo i finding Claude esegue **cinque verifiche standard**, uguali per tutti i software: autenticazione e autorizzazione degli endpoint esposti; segreti; trasporto e CORS; SQL e comandi; crittografia. Per ogni area l'esito è: nessuna osservazione confermata, una o più osservazioni, oppure non verificabile con le prove disponibili. Solo i problemi **confermati** diventano `OBS-xxx`, separati dai finding dello scanner. Non è un audit generale.
+
+Infine la **terza analisi**: una **security review di tutta la cartella dei sorgenti** con il metodo del comando `/security-review` di Claude Code (stesse categorie, esclusioni e filtro dei falsi positivi, soglia di confidenza 8 su 10). Il comando nativo esamina solo il diff del branch rispetto a `origin/HEAD` e richiede Git: per questo la skill ne applica le istruzioni a tutti i sorgenti, senza invocarlo. Ogni vulnerabilità candidata viene poi riverificata sul sorgente con le regole del toolkit: diventano `OBS-xxx` solo quelle confermate e non già coperte da un finding o da un'altra osservazione. Nel report le riconosci perché la sintesi inizia con «Security review:»; se rientrano in una delle cinque aree, compaiono anche nella tabella delle verifiche standard. La review è annunciata nel piano, quindi coperta dalla tua approvazione.
 
 Le regole complete sono nei riferimenti delle skill; qui basta sapere che si basano sulle prove, non sulla gravità dello scanner.
 
@@ -168,8 +183,10 @@ sast-output/triage/
 - `PIANO_TRIAGE.md`: il piano che hai approvato.
 - `TRIAGE_REPORT.md`: il report da leggere, sempre con le stesse sezioni (riepilogo, finding confermati, `False Positive`, `Unknown - Needs Review`, verifiche standard, osservazioni aggiuntive).
 - `TRIAGE_REPORT.csv`: una riga per ogni finding e osservazione, da aprire in Excel (separatore `;`, UTF-8).
-- `triage.json`: il **contratto stabile e validato** tra `sast-triage` e `sast-remediation`. Contiene, in sintesi: metadati del progetto e del report scanner, contesto rilevato, finding con verdetto, prove e cancelli G1–G4, esito delle cinque verifiche standard e osservazioni aggiuntive. `/sast-remediation` parte da questo risultato validato invece di rifare il triage.
-- `_work/`: dati di lavoro interni, non sono il risultato principale.
+- `triage.json`: il **contratto stabile e validato** tra `sast-triage` e `sast-remediation`. Contiene, in sintesi: metadati del progetto e del report scanner, contesto rilevato, finding con verdetto, prove e cancelli G1–G4, esito delle cinque verifiche standard e osservazioni aggiuntive (anche quelle della security review). `/sast-remediation` parte da questo risultato validato invece di rifare il triage.
+- `_work/`: dati di lavoro interni, non sono il risultato principale. `_work/security-review.json` registra ogni candidata della security review con il suo esito (osservazione, duplicato o scartata, e perché).
+
+Il formato dei file è lo stesso qualunque sia il report di partenza (CSV o SARIF).
 
 ## 8. Remediation
 
@@ -213,7 +230,7 @@ sast-output/remediation/
         └── PROPOSTE.json
 ```
 
-`<ID>` può essere un finding AppScan, come `AS-xxx`, oppure un'osservazione aggiuntiva confermata, come `OBS-xxx`.
+`<ID>` può essere un finding dello scanner, come `AS-xxx`, oppure un'osservazione aggiuntiva confermata (dalle verifiche standard o dalla security review), come `OBS-xxx`.
 
 **Non ogni fix produce tutti i tipi di file.** La remediation non scrive mai in `sast-output/triage/`.
 

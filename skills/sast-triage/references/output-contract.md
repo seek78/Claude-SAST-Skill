@@ -9,7 +9,7 @@
   "schema_version": "1.0",
   "metadata": {
     "project_name": "<nome-cartella-sorgenti>",
-    "scanner_report_name": "<report-appscan.csv>",
+    "scanner_report_name": "<report-appscan.csv | report.sarif>",
     "scanner_report_date": "2026-01-15",
     "toolkit_version": "<versione>"
   },
@@ -58,8 +58,8 @@
 | Campo | Origine |
 |---|---|
 | `project_name` | nome dell'ultima cartella del percorso dei sorgenti indicato allo strumento; non si ricava dal contenuto dei sorgenti |
-| `scanner_report_name` | nome del file CSV AppScan (senza cartelle) |
-| `scanner_report_date` | data `AAAA-MM-GG` dichiarata dallo scanner nel CSV (sezione `Report Attributes`, UTC); `null` se non c'è o non è valida. Mai la data del file, della copia o di oggi |
+| `scanner_report_name` | nome del file del report dello scanner, CSV AppScan o SARIF (senza cartelle) |
+| `scanner_report_date` | data `AAAA-MM-GG` dichiarata dallo scanner: nel CSV la sezione `Report Attributes` (UTC), nel SARIF la più recente degli `invocations` (UTC); `null` se non c'è o non è valida (l'export SARIF di AppScan non la riporta). Mai la data del file, della copia o di oggi |
 | `toolkit_version` | versione del toolkit, una costante dello script |
 
 **`context`**: contesto che può influenzare le correzioni.
@@ -73,13 +73,13 @@
 | `constraints` | vincoli indicati dallo sviluppatore |
 | `assumptions` | assunzioni fatte, in particolare lo scenario peggiore ragionevole |
 
-**`findings`**: una voce per **ogni** segnalazione del report AppScan.
+**`findings`**: una voce per **ogni** segnalazione del report dello scanner (CSV AppScan o SARIF).
 
 | Campo | Significato |
 |---|---|
-| `id` | identificativo univoco nel file (es. `AS-001`), usato da triage e remediation |
+| `id` | identificativo univoco nel file (es. `AS-001`, anche per un SARIF), usato da triage e remediation |
 | `title` | titolo breve |
-| `scanner_severity` | gravità originale di AppScan, separata dal verdetto |
+| `scanner_severity` | gravità originale dello scanner, separata dal verdetto (per un SARIF quella ricavata dal parser, sulla stessa scala) |
 | `verdict` | esito del triage (vedi sotto) |
 | `defect_present` | solo per `False Positive`: `true` = esiste un difetto software reale ma la catena verificata non ha impatto di sicurezza; `false` = non è stato stabilito nessun difetto rilevante per il finding. Per ogni altro verdetto è `null` |
 | `location` | punto segnalato: `file` relativo ai sorgenti, `line` numero oppure `null` |
@@ -88,7 +88,7 @@
 | `gates` | per G1–G4, la prova in una frase. Obbligatori per `High`, `Medium`, `Low` e `False Positive`; per `Unknown - Needs Review` restano vuoti solo i cancelli non verificabili |
 | `missing_evidence` | prove mancanti; vuoto salvo `Unknown - Needs Review` |
 
-**`additional_observations`**: problemi notati fuori dal report, mai duplicati di un finding. Campi: `id` (es. `OBS-001`), `title`, `verdict` (solo `High`, `Medium` o `Low`), `location`, `analysis_summary`, `evidence`. Si registra solo ciò che è sostenuto da prove.
+**`additional_observations`**: problemi notati fuori dal report, mai duplicati di un finding, trovati dalle cinque verifiche standard o dalla security review (terza analisi; il loro `analysis_summary` inizia con «Security review:»). Campi: `id` (es. `OBS-001`), `title`, `verdict` (solo `High`, `Medium` o `Low`), `location`, `analysis_summary`, `evidence`. Si registra solo ciò che è sostenuto da prove.
 
 **`standard_checks`**: l'esito delle cinque verifiche standard oltre lo scanner. Una voce per area, in questo ordine e una volta sola: `authentication_authorization`, `secrets`, `transport_cors`, `sql_commands`, `cryptography`.
 
@@ -117,4 +117,4 @@ Regole: `confirmed_observation` richiede almeno un `OBS-xxx`; `no_observation` r
 
 ## Cosa non contiene
 
-Record grezzi di AppScan, contenuti XML/HTML, dati SCA, blocchi di sorgente, tracce dello scanner, percorsi assoluti, segreti, cronologia, approvazioni, data o ora di esecuzione (l'unica data è quella del report dello scanner, in `metadata`), log.
+Record grezzi dello scanner (CSV, XML, SARIF), contenuti HTML, dati SCA, blocchi di sorgente, tracce dello scanner, percorsi assoluti, segreti, cronologia, approvazioni, data o ora di esecuzione (l'unica data è quella del report dello scanner, in `metadata`), log, candidate scartate della security review (restano in `_work/security-review.json`).

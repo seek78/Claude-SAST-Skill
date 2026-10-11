@@ -1,0 +1,37 @@
+{
+  "candidates": [
+    {
+      "title": "<titolo breve della vulnerabilità candidata>",
+      "category": "<categoria di /security-review, es. sql_injection, xss, path_traversal>",
+      "area": "",
+      "location": { "file": "<percorso/relativo/File.ext>", "line": 42 },
+      "severity": "High",
+      "confidence": 9,
+      "outcome": "observation",
+      "ref": "OBS-002",
+      "reason": ""
+    },
+    {
+      "title": "<titolo breve>",
+      "category": "sql_injection",
+      "area": "sql_commands",
+      "location": { "file": "<percorso/relativo/File.ext>", "line": 17 },
+      "severity": "High",
+      "confidence": 10,
+      "outcome": "duplicate",
+      "ref": "AS-001",
+      "reason": "<perché è lo stesso problema del finding o dell'osservazione in ref>"
+    },
+    {
+      "title": "<titolo breve>",
+      "category": "<categoria>",
+      "area": "",
+      "location": { "file": "<percorso/relativo/File.ext>", "line": null },
+      "severity": "Medium",
+      "confidence": 6,
+      "outcome": "discarded",
+      "ref": "",
+      "reason": "<perché è scartata: confidenza sotto 8, esclusione di /security-review, non confermata sul sorgente o fuori perimetro>"
+    }
+  ]
+}

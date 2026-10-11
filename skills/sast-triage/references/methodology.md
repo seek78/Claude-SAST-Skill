@@ -5,7 +5,7 @@ Regole operative per Claude.
 ## Regole di base
 
 - Il report è un ingresso: riapri ogni finding sul sorgente e segui il flusso dei dati.
-- `scanner_severity` = gravità originale AppScan (input). `verdict` = tuo esito. Campi separati, nessun altro sistema di gravità.
+- `scanner_severity` = gravità originale dello scanner (input): quella di AppScan, o per un SARIF quella ricavata da `parse_sarif.py`. `verdict` = tuo esito. Campi separati, nessun altro sistema di gravità.
 - `verdict` ∈ `High` (Grave) · `Medium` (Medio) · `Low` (Basso) · `False Positive` (Falso positivo) · `Unknown - Needs Review` (Da verificare). Con gli sviluppatori usa l'italiano, nei dati i valori canonici.
 - Contesto ignoto → scenario peggiore ragionevole, dichiarato. Niente minacce irrealistiche.
 - Catena non stabilita né smentita → `Unknown - Needs Review`. Non forzare. È un esito valido.
@@ -51,11 +51,11 @@ Ogni verdetto riporta: cosa hai ispezionato (`<file>:<riga>`); fin dove hai segu
 
 - **Famiglie**: solo stesso flusso o stessa causa, non stesso CWE o etichetta. Istanza diversa → analisi separata.
 - **Confini opachi** (binario, libreria, componente senza sorgente): solo lettura di documentazione, metadati o decompilato, se permesso, senza eseguire. Comportamento non dimostrato → ferma la catena, `Unknown - Needs Review`, nomina il componente. Non inventare.
-- **Osservazioni aggiuntive**: elenco separato, mai come finding dello scanner; non duplicare; con prove; entro il perimetro approvato. Si cercano solo con le verifiche standard qui sotto.
+- **Osservazioni aggiuntive**: elenco separato, mai come finding dello scanner; non duplicare; con prove; entro il perimetro approvato. Si cercano solo con le verifiche standard e con la security review qui sotto.
 
 ## Verifiche standard oltre lo scanner
 
-Dopo i finding, una fase **limitata** a cinque aree. Non è un audit generale: non si cercano altre classi di problemi.
+Dopo i finding, una fase **limitata** a cinque aree. Non è un audit generale: non si cercano altre classi di problemi (quelle restano alla security review, più avanti).
 
 1. Autenticazione e autorizzazione degli endpoint esposti
 2. Segreti nel codice e nella configurazione
@@ -72,10 +72,20 @@ Esito di ogni area, uno solo:
 Regole:
 
 - Diventa `OBS-xxx` solo un problema di sicurezza **confermato** da prove (`<file>:<riga>`), con `High`, `Medium` o `Low` secondo l'impatto. Non creare osservazioni `False Positive` o `Unknown` per riempire le aree.
-- Le osservazioni restano separate dai finding AppScan e non li duplicano: se un'area è già coperta da un finding, citalo invece di aprire una `OBS`.
+- Le osservazioni restano separate dai finding dello scanner e non li duplicano: se un'area è già coperta da un finding, citalo invece di aprire una `OBS`.
 - Sola lettura, solo sorgenti del perimetro approvato, ricerche mirate. Le domande di aiuto sono in `checks-by-topic.md`.
 - Segreti: esistenza e posizione, mai il valore.
 - Il report riporta l'esito di tutte e cinque le aree.
+
+## Terza analisi: security review
+
+Dopo le verifiche standard, una security review di **tutta** la cartella dei sorgenti con il metodo del comando `/security-review` di Claude Code. Procedura, prompt e regole sono in `security-review.md`.
+
+- Le candidate passano il filtro dei falsi positivi di `/security-review` (confidenza almeno 8) e poi la tua verifica sul sorgente: solo le confermate diventano `OBS-xxx`, con il verdetto di questa metodologia. La gravità proposta dalla review è un input, come quella dello scanner.
+- Le esclusioni e i precedenti di `/security-review` valgono solo per le sue candidate: non cambiano i verdetti dei finding né le verifiche standard.
+- Non duplicare: una candidata già coperta da un finding o da un'altra `OBS` è un duplicato.
+- Se l'`OBS` rientra in una delle cinque aree, compare anche nell'esito di quell'area.
+- Ogni candidata, anche scartata, si registra in `security-review.json`.
 
 ## Autovalidazione
 
@@ -83,6 +93,7 @@ Prima di chiudere:
 
 - ogni `False Positive` ha prove su G1–G4;
 - ogni area standard ha un esito, e solo i problemi confermati sono `OBS`;
+- la security review è registrata e ogni `OBS` viene da una verifica standard o dalla security review;
 - ogni `Unknown - Needs Review` dichiara la prova mancante;
 - ogni finding confermato ha prove sufficienti;
 - ogni finding del report ha un `verdict`;
