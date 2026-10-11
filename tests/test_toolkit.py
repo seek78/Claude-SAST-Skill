@@ -7,7 +7,9 @@ Esecuzione, dalla cartella del toolkit:
 - L'output con CSV + XML resta quello della versione 1.0.0 (fixtures/expected_v1, prodotti con gli script
   originali): cambiano solo la riga della security review nel piano e la versione del toolkit.
 - Un SARIF equivalente al CSV produce lo stesso report: cambiano solo nome e data del report scanner.
-- parse_sarif.py: gravità, esclusioni, percorsi, regole, date ed errori su SARIF costruiti nei test.
+- Lo stesso SARIF diviso in due file produce lo stesso report: cambia solo il nome del report scanner.
+- parse_sarif.py: gravità, esclusioni, percorsi, regole, date, più file, duplicati tra file ed errori su SARIF
+  costruiti nei test.
 - build_triage.py: validazione della terza analisi (security-review.json).
 """
 
@@ -69,8 +71,9 @@ class Workspace(unittest.TestCase):
         """parse → piano → triage.json → report, nella cartella <tmp>/<name>/sast-output/triage."""
         triage = self.path(name, "sast-output", "triage")
         parsed = os.path.join(triage, "_work", "parsed.json")
-        if report.endswith(".sarif"):
-            code, out, err = run(os.path.join(TRIAGE, "parse_sarif.py"), report, "--sources", DEMO, "-o", parsed)
+        reports = report if isinstance(report, list) else [report]
+        if reports[0].endswith(".sarif"):
+            code, out, err = run(os.path.join(TRIAGE, "parse_sarif.py"), *reports, "--sources", DEMO, "-o", parsed)
         else:
             extra = ["--xml", xml] if xml else []
             code, out, err = run(os.path.join(TRIAGE, "parse_appscan.py"), report, "--sources", DEMO, "-o", parsed, *extra)
@@ -151,10 +154,31 @@ class TestOutputInvariato(Workspace):
                 got_sarif = got_sarif.replace(extra["sarif"], "<xml>")
             self.assertEqual(got_csv, got_sarif, name)
 
+    def test_piu_sarif_come_uno(self):
+        """Lo stesso SARIF diviso in due file: stessi finding, stessi numeri, stesso report; cambia solo il nome."""
+        doc = read_json(os.path.join(FIX, "appscan", "report.sarif"))
+        parts = []
+        for n, (start, end) in enumerate(((0, 2), (2, None)), 1):
+            part = copy.deepcopy(doc)
+            part["runs"][0]["results"] = doc["runs"][0]["results"][start:end]
+            parts.append(self.path("in", "parte{0}.sarif".format(n)))
+            write_json(parts[-1], part)
+        one = self.pipeline("uno", os.path.join(FIX, "appscan", "report.sarif"))
+        two = self.pipeline("due", parts)
+        self.assertEqual(read_bytes(os.path.join(one, "TRIAGE_REPORT.csv")), read_bytes(os.path.join(two, "TRIAGE_REPORT.csv")))
+        a, b = read_json(os.path.join(one, "triage.json")), read_json(os.path.join(two, "triage.json"))
+        self.assertEqual(b["metadata"]["scanner_report_name"], "parte1.sarif + parte2.sarif")
+        b["metadata"]["scanner_report_name"] = a["metadata"]["scanner_report_name"]
+        self.assertEqual(a, b)
+        for name in ("PIANO_TRIAGE.md", "TRIAGE_REPORT.md"):
+            got = read_bytes(os.path.join(two, name)).decode("utf-8").replace("parte1.sarif + parte2.sarif", "report.sarif")
+            self.assertEqual(got, read_bytes(os.path.join(one, name)).decode("utf-8"), name)
+
     def test_nomi_di_classe_risolti_solo_dal_sarif(self):
         """Scelta esplicita: il CSV resta identico alla v1, quindi un Source File con il nome di classe (export di
         AppScan on Cloud per il codice compilato) non viene risolto; il SARIF della stessa scansione sì."""
-        rows = io.open(os.path.join(FIX, "appscan", "report.csv"), encoding="utf-8-sig", newline="").read()
+        with io.open(os.path.join(FIX, "appscan", "report.csv"), encoding="utf-8-sig", newline="") as fh:
+            rows = fh.read()
         report = self.path("classi.csv")
         with io.open(report, "w", encoding="utf-8-sig", newline="") as fh:
             fh.write(rows.replace("C:\\build\\demo\\Src\\Demo.Shop\\Persistence\\OrderRepository.cs",
@@ -223,6 +247,18 @@ class TestParseSarif(Workspace):
         code, stdout, stderr = run(os.path.join(TRIAGE, "parse_sarif.py"), *args)
         return code, stdout, stderr, read_json(out) if code == 0 else None
 
+    def parse_many(self, docs):
+        """docs: [(percorso relativo del file, documento SARIF)], nell'ordine in cui passarli."""
+        reports = []
+        for rel, doc in docs:
+            reports.append(self.path("in", *rel.split("/")))
+            write_json(reports[-1], doc)
+        out = self.path("out", "parsed.json")
+        if os.path.exists(out):
+            os.remove(out)
+        code, stdout, stderr = run(os.path.join(TRIAGE, "parse_sarif.py"), *reports, "-o", out, "--sources", self.sources)
+        return code, stdout, stderr, read_json(out) if code == 0 else None
+
     def test_gravita_campo_strumento_poi_security_severity_poi_level(self):
         rules = [{"id": "R1", "properties": {"security-severity": "9.1"}},
                  {"id": "R2", "defaultConfiguration": {"level": "error"}},
@@ -255,7 +291,8 @@ class TestParseSarif(Workspace):
         code, out, err, parsed = self.parse(sarif_doc(results))
         self.assertEqual(code, 0, err)
         self.assertEqual(parsed["counts"]["total"], 4)
-        self.assertEqual(parsed["sarif"]["excluded"], {"suppressed": 2, "absent": 1, "not_a_problem": 3})
+        self.assertEqual(parsed["sarif"]["excluded"], {"suppressed": 2, "absent": 1, "not_a_problem": 3, "duplicate": 0})
+        self.assertEqual(parsed["sarif"]["files"], [{"name": "report.sarif", "results": 10, "findings": 4}])
         self.assertIn("--include-suppressed", out)
         code, out, err, parsed = self.parse(sarif_doc(results), "--include-suppressed")
         self.assertEqual(parsed["counts"]["total"], 6)
@@ -348,6 +385,64 @@ class TestParseSarif(Workspace):
             self.assertEqual(code, 1, message)
             self.assertIn(message, err)
             self.assertFalse(os.path.exists(self.path("out", "parsed.json")))
+
+    def test_piu_file(self):
+        a = sarif_doc([result(guid="a-1"), result(guid="a-2", line=20)], invocations=[{"endTimeUtc": "2026-01-10T08:00:00Z"}])
+        b = sarif_doc([result(guid="b-1", uri="src/App/Data/Customer.cs"), result(line=30)],
+                      invocations=[{"endTimeUtc": "2026-03-05T08:00:00Z"}])
+        b["runs"][0]["tool"]["driver"]["name"] = "Altro strumento"
+        code, out, err, parsed = self.parse_many([("appscan.sarif", a), ("altro.sarif", b)])
+        self.assertEqual(code, 0, err)
+        self.assertEqual(parsed["report"], "appscan.sarif + altro.sarif")
+        self.assertEqual(parsed["report_date"], "2026-03-05")                  # la più recente tra i file
+        self.assertEqual([(f["id"], f["scanner_issue_id"]) for f in parsed["findings"]],
+                         [("AS-001", "a-1"), ("AS-002", "a-2"), ("AS-003", "b-1"), ("AS-004", "file2/run1/result2")])
+        self.assertEqual(parsed["sarif"]["tools"], ["Strumento 1.0", "Altro strumento 1.0"])
+        self.assertEqual(parsed["sarif"]["files"], [{"name": "appscan.sarif", "results": 2, "findings": 2},
+                                                    {"name": "altro.sarif", "results": 2, "findings": 2}])
+        self.assertIn("File SARIF: appscan.sarif 2 finding su 2 risultati; altro.sarif 2 finding su 2 risultati", out)
+
+    def test_duplicati_tra_file(self):
+        first = sarif_doc([result(guid="g-1"), result(guid="g-1"),            # ripetuto nello stesso file: resta (#2)
+                           result(partialFingerprints={"h": "fp-1"}, line=20)])
+        second = sarif_doc([result(guid="g-1"),                                # già letto: escluso
+                            result(partialFingerprints={"h": "fp-1"}, line=20),  # già letto (impronta): escluso
+                            result(guid="g-1", line=99),                       # stesso id, altra riga: resta
+                            result(guid="g-2"),
+                            result()])                                         # senza identificativo: mai duplicato
+        other_tool = sarif_doc([result(guid="g-1")])                            # stesso punto, altro strumento: resta
+        other_tool["runs"][0]["tool"]["driver"]["name"] = "Altro strumento"
+        code, out, err, parsed = self.parse_many([("a.sarif", first), ("b.sarif", second), ("c.sarif", other_tool)])
+        self.assertEqual(code, 0, err)
+        self.assertEqual([f["scanner_issue_id"] for f in parsed["findings"]],
+                         ["g-1", "g-1#2", "fp-1", "g-1#3", "g-2", "file2/run1/result5", "g-1#4"])
+        self.assertEqual(parsed["sarif"]["excluded"], {"suppressed": 0, "absent": 0, "not_a_problem": 0, "duplicate": 2})
+        self.assertEqual([f["findings"] for f in parsed["sarif"]["files"]], [3, 3, 1])
+        self.assertIn("2 risultati già letti da un file precedente", out)
+        self.assertIn("2 duplicati di un file precedente", out)
+
+    def test_piu_file_nomi_ed_errori(self):
+        doc = sarif_doc([result(guid="g-1")])
+        report = self.path("in", "uno.sarif")
+        write_json(report, doc)
+        code, _, err = run(os.path.join(TRIAGE, "parse_sarif.py"), report, report, "-o", self.path("x.json"))
+        self.assertEqual(code, 1)
+        self.assertIn("indicato più volte", err)
+        code, out, err, parsed = self.parse_many([("moduloA/results.sarif", doc), ("moduloB/results.sarif", doc)])
+        self.assertEqual(code, 0, err)
+        self.assertEqual(parsed["report"], "moduloA/results.sarif + moduloB/results.sarif")
+        self.assertEqual(parsed["counts"]["total"], 1)                          # il secondo file è tutto duplicato
+        self.assertIn("moduloB/results.sarif: nessun finding da valutare (1 risultati letti)", out)
+        code, _, err, _ = self.parse_many([("x/moduloA/results.sarif", doc), ("y/moduloA/results.sarif", doc)])
+        self.assertEqual(code, 1)
+        self.assertIn("rinominali", err)
+        code, _, err, _ = self.parse_many([("buono.sarif", doc),
+                                           ("rotto.sarif", sarif_doc([{"ruleId": "R1", "message": {"text": "x"}}]))])
+        self.assertEqual(code, 1)
+        self.assertIn("rotto.sarif: Run #1, risultato #1", err)
+        code, _, err, _ = self.parse_many([("p1.sarif", sarif_doc([result(kind="pass")])), ("p2.sarif", sarif_doc([]))])
+        self.assertEqual(code, 1)
+        self.assertIn("I SARIF non contengono finding da valutare (1 risultati letti, 1 esclusi)", err)
 
     def test_senza_sorgenti(self):
         code, out, err, parsed = self.parse(sarif_doc([result(uri="file:///App.Data.OrderRepository.cs")]), sources=False)

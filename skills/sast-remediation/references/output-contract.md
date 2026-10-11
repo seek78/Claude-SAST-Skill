@@ -9,7 +9,7 @@
   "schema_version": "1.0",
   "metadata": {
     "project_name": "<nome-cartella-sorgenti>",
-    "scanner_report_name": "<report-appscan.csv | report.sarif>",
+    "scanner_report_name": "<report-appscan.csv | report.sarif | uno.sarif + altro.sarif>",
     "scanner_report_date": "2026-01-15",
     "toolkit_version": "<versione>"
   },
@@ -58,8 +58,8 @@
 | Campo | Origine |
 |---|---|
 | `project_name` | nome dell'ultima cartella del percorso dei sorgenti indicato allo strumento; non si ricava dal contenuto dei sorgenti |
-| `scanner_report_name` | nome del file del report dello scanner, CSV AppScan o SARIF (senza cartelle) |
-| `scanner_report_date` | data `AAAA-MM-GG` dichiarata dallo scanner: nel CSV la sezione `Report Attributes` (UTC), nel SARIF la più recente degli `invocations` (UTC); `null` se non c'è o non è valida (l'export SARIF di AppScan non la riporta). Mai la data del file, della copia o di oggi |
+| `scanner_report_name` | nome del file del report dello scanner, CSV AppScan o SARIF (senza cartelle); con più SARIF i nomi uniti da « + » nell'ordine indicato, ciascuno preceduto dalla sua cartella solo se due file hanno lo stesso nome |
+| `scanner_report_date` | data `AAAA-MM-GG` dichiarata dallo scanner: nel CSV la sezione `Report Attributes` (UTC), nel SARIF la più recente degli `invocations`, anche tra più file (UTC); `null` se non c'è o non è valida (l'export SARIF di AppScan non la riporta). Mai la data del file, della copia o di oggi |
 | `toolkit_version` | versione del toolkit, una costante dello script |
 
 **`context`**: contesto che può influenzare le correzioni.
@@ -73,11 +73,11 @@
 | `constraints` | vincoli indicati dallo sviluppatore |
 | `assumptions` | assunzioni fatte, in particolare lo scenario peggiore ragionevole |
 
-**`findings`**: una voce per **ogni** segnalazione del report dello scanner (CSV AppScan o SARIF).
+**`findings`**: una voce per **ogni** segnalazione del report dello scanner (CSV AppScan o SARIF). Con più SARIF, un risultato presente in più file (stesso strumento, regola, file, riga e identificativo) è una sola voce.
 
 | Campo | Significato |
 |---|---|
-| `id` | identificativo univoco nel file (es. `AS-001`, anche per un SARIF), usato da triage e remediation |
+| `id` | identificativo univoco nel file (es. `AS-001`, anche per uno o più SARIF, con una sola numerazione), usato da triage e remediation |
 | `title` | titolo breve |
 | `scanner_severity` | gravità originale dello scanner, separata dal verdetto (per un SARIF quella ricavata dal parser, sulla stessa scala) |
 | `verdict` | esito del triage (vedi sotto) |

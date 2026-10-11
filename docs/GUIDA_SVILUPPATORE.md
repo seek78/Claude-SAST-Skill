@@ -21,7 +21,7 @@ Due skill di Claude Code:
 - Claude Code.
 - Python 3, disponibile come `python` o `python3`. Nessun pacchetto Python di terze parti.
 - Il codice sorgente dell'applicazione.
-- Il report dello scanner (obbligatorio): AppScan in **CSV**, con il report AppScan **XML** facoltativo, **oppure** un file **SARIF 2.1.0** di AppScan o di un altro strumento SAST.
+- Il report dello scanner (obbligatorio): AppScan in **CSV**, con il report AppScan **XML** facoltativo, **oppure** uno o più file **SARIF 2.1.0** di AppScan o di altri strumenti SAST.
 - Il report **SCA** (facoltativo).
 
 Git non è obbligatorio.
@@ -109,7 +109,7 @@ Claude chiede «Come vuoi indicarmi i file?»:
 Servono sempre:
 
 - la **cartella dei sorgenti**;
-- il **report dello scanner**: il **CSV AppScan** oppure un file **SARIF** (sono alternativi: se ne indichi entrambi, Claude chiede quale usare).
+- il **report dello scanner**: il **CSV AppScan** oppure uno o più file **SARIF** (sono alternativi: se indichi CSV e SARIF insieme, Claude chiede quale usare; i CSV si usano uno alla volta).
 
 Sono facoltativi il report **XML** (solo con il CSV), il report **SCA** e una baseline o un contesto aggiuntivo (vincoli, un triage precedente: è solo contesto e non decide mai il verdetto).
 
@@ -126,6 +126,11 @@ Il SARIF sostituisce la coppia CSV + XML: contiene i finding e, nei `codeFlows`,
 - **Tracce e titoli**: rispetto alla coppia CSV + XML della stessa scansione, il SARIF ha le tracce solo per i finding con flusso di dati (l'XML riporta anche la riga di codice evidenziata per gli altri); il titolo è il messaggio del SARIF, uguale al tipo di problema del CSV nella maggior parte dei casi e più descrittivo negli altri (es. «Throwing generic exceptions in C#» invece di «ErrorHandling»).
 - **Esclusi**, e contati: i risultati soppressi nello strumento (salvo richiesta esplicita), quelli non più presenti (`baselineState` `absent`) e quelli che non sono problemi (`kind` `pass`, `notApplicable`, `informational`).
 - **Data del report**: quella dichiarata negli `invocations`. L'export SARIF di AppScan non la riporta: nel report compare «data non disponibile».
+- **Più file SARIF**, per esempio di strumenti o moduli diversi, si leggono insieme:
+  - una sola numerazione `AS-xxx`, nell'ordine in cui indichi i file;
+  - un risultato già letto da un file precedente (stesso strumento, regola, file, riga e identificativo) conta una volta sola: lo script lo esclude e lo segnala. Strumenti diversi sullo stesso punto restano finding distinti, analizzati nello stesso gruppo;
+  - nel report il nome diventa l'elenco dei file uniti da « + » (es. `appscan.sarif + semgrep.sarif`), con la cartella solo se due file hanno lo stesso nome, e la data è la più recente;
+  - lo stesso file indicato due volte è un errore.
 
 Ti viene chiesta l'**esposizione**, una tra:
 

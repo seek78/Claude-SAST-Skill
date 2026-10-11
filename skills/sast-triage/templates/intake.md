@@ -10,17 +10,17 @@ Prima domanda, sempre, senza cercare nulla sul disco:
 > 1. Cercali tu nella cartella di lavoro
 > 2. Li indico io
 
-- **Li indico io**: chiedi in un solo messaggio cartella dei sorgenti, report dello scanner (obbligatorio: CSV AppScan, con XML facoltativo, **oppure** SARIF), SCA (facoltativo). Nessuna ricerca sul disco prima dei percorsi.
+- **Li indico io**: chiedi in un solo messaggio cartella dei sorgenti, report dello scanner (obbligatorio: CSV AppScan, con XML facoltativo, **oppure** uno o più SARIF), SCA (facoltativo). Nessuna ricerca sul disco prima dei percorsi.
 - **Cercali tu nella cartella di lavoro**: ricerca in sola lettura solo dentro la cartella di lavoro, mai nelle cartelle superiori. Candidati a scelta:
 
 | Voce | Candidati | Sempre presenti |
 |---|---|---|
 | Cartella dei sorgenti | cartelle di primo livello plausibili | Altro percorso |
-| Report dello scanner | file `.csv` con intestazione AppScan; file `.sarif` (o `.sarif.json`) con `"version": "2.1.0"` e `runs` | Altro percorso |
+| Report dello scanner (scelta multipla: più SARIF, un solo CSV) | file `.csv` con intestazione AppScan; file `.sarif` (o `.sarif.json`) con `"version": "2.1.0"` e `runs` | Altro percorso |
 | Report AppScan XML (facoltativo, solo con il CSV) | file `.xml` con radice `xml-report` | Nessuno · Altro percorso |
 | Report SCA (facoltativo) | file `.html` con etichette SCA | Nessuno · Altro percorso |
 
-CSV e SARIF sono alternativi: se lo sviluppatore li indica entrambi, chiedi quale usare.
+CSV e SARIF sono alternativi: se lo sviluppatore li indica entrambi, chiedi quale usare. Più SARIF si leggono insieme; più CSV no: chiedi quale usare.
 
 ## 2. Domande di contesto (solo ciò che non si ricava)
 
@@ -54,7 +54,7 @@ Contesto rilevato
 - Esposizione: <Internet | Rete interna | Solo locale | Non nota> [— dettaglio]
 - Rilascio: <valore> (rilevato)
 - Report AppScan: <file CSV> (<data o «data non disponibile»>)
-  oppure, con il SARIF: Report SARIF: <file> (<data o «data non disponibile»>) — <strumento>[; <n> risultati soppressi esclusi]
+  oppure, con il SARIF: Report SARIF: <file, o i file uniti da « + »> (<data o «data non disponibile»>) — <strumenti>[; <n> risultati soppressi esclusi][; <n> duplicati tra file contati una volta]
 - XML: fornito / non fornito (con il SARIF: non previsto, le tracce vengono dai codeFlows)
 - SCA: fornito / non fornito
 - Assunzioni e punti aperti: …

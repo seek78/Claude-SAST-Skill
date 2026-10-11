@@ -3,7 +3,7 @@
 Strumento per rivalutare con Claude Code i risultati di una scansione SAST **HCL AppScan** (o di un altro strumento che esporta **SARIF**) e per preparare le correzioni, con un'approvazione esplicita dello sviluppatore a ogni passaggio importante.
 
 - Parte dai finding dello scanner e li **rivaluta sul codice sorgente**: la gravità dello scanner non è il verdetto.
-- Accetta il report AppScan in **CSV** (con XML facoltativo) oppure un file **SARIF 2.1.0**: l'output è lo stesso.
+- Accetta il report AppScan in **CSV** (con XML facoltativo) oppure uno o più file **SARIF 2.1.0**, anche di strumenti diversi: l'output è lo stesso.
 - Aggiunge una **security review di tutti i sorgenti** con il metodo del comando `/security-review` di Claude Code: le vulnerabilità confermate diventano osservazioni `OBS`, nello stesso report.
 - Produce un triage controllato: verdetto, prove, report leggibile, file CSV e un file JSON per la fase successiva.
 - Prepara **proposte** di correzione (diff, sostituzioni proposte, verifiche). Non applica mai nulla da solo.
@@ -19,7 +19,7 @@ Strumento per rivalutare con Claude Code i risultati di una scansione SAST **HCL
 - Claude Code.
 - Python 3, disponibile come `python` o `python3`. Nessun pacchetto Python esterno.
 - Il codice sorgente analizzato.
-- Il report dello scanner (obbligatorio): AppScan in **CSV**, con il report XML facoltativo, **oppure** un file **SARIF 2.1.0** di AppScan o di un altro strumento SAST. Il report SCA è facoltativo.
+- Il report dello scanner (obbligatorio): AppScan in **CSV**, con il report XML facoltativo, **oppure** uno o più file **SARIF 2.1.0** di AppScan o di altri strumenti SAST. Il report SCA è facoltativo.
 
 ## Installazione rapida
 
@@ -45,7 +45,7 @@ Dopo l'installazione apri una **sessione nuova** di Claude Code nel progetto, sc
 
 ```
 /sast-triage
-  → indica o fai cercare i file (sorgenti, report CSV o SARIF)
+  → indica o fai cercare i file (sorgenti, report CSV o uno o più SARIF)
   → leggi PIANO_TRIAGE.md e approva
   → triage dei finding, verifiche standard, security review
   → leggi TRIAGE_REPORT.md, TRIAGE_REPORT.csv e triage.json

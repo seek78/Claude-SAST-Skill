@@ -1,11 +1,11 @@
 ---
 name: sast-triage
-description: "Rivaluta con Claude i finding di una scansione SAST sul codice sorgente: report HCL AppScan in CSV (con XML e SCA facoltativi) oppure un file SARIF 2.1.0 di AppScan o di un altro strumento. Distingue problemi reali, falsi positivi e casi da verificare e aggiunge una security review di tutti i sorgenti con il metodo di /security-review. Parte da un piano che lo sviluppatore deve approvare, poi produce triage.json e un report sintetico. Usala per fare il triage di un report AppScan o SARIF o rivalutare i finding SAST. Non corregge il codice: per questo c'è sast-remediation."
+description: "Rivaluta con Claude i finding di una scansione SAST sul codice sorgente: report HCL AppScan in CSV (con XML e SCA facoltativi) oppure uno o più file SARIF 2.1.0 di AppScan o di altri strumenti. Distingue problemi reali, falsi positivi e casi da verificare e aggiunge una security review di tutti i sorgenti con il metodo di /security-review. Parte da un piano che lo sviluppatore deve approvare, poi produce triage.json e un report sintetico. Usala per fare il triage di un report AppScan o SARIF o rivalutare i finding SAST. Non corregge il codice: per questo c'è sast-remediation."
 ---
 
 # sast-triage
 
-Rivaluta i finding di una scansione SAST (CSV AppScan con XML facoltativo, oppure SARIF) sul codice sorgente, aggiunge una security review di tutti i sorgenti e produce `triage.json` (letto da `/sast-remediation`) e un report sintetico. Parla sempre in italiano con lo sviluppatore.
+Rivaluta i finding di una scansione SAST (CSV AppScan con XML facoltativo, oppure uno o più SARIF) sul codice sorgente, aggiunge una security review di tutti i sorgenti e produce `triage.json` (letto da `/sast-remediation`) e un report sintetico. Parla sempre in italiano con lo sviluppatore.
 
 I percorsi `scripts/`, `references/` e `templates/` sono relativi alla cartella che contiene questo `SKILL.md`: non chiedere allo sviluppatore dove è installata la skill. Nei comandi usa il percorso completo di quella cartella. Usa `python` (o `python3` se `python` non esiste).
 
@@ -19,7 +19,7 @@ I percorsi `scripts/`, `references/` e `templates/` sono relativi alla cartella 
 | Formato di `triage.json` | `references/output-contract.md` |
 | Domande iniziali | `templates/intake.md` |
 | Contenuti che scrivi tu (piano, analisi, security review) | `templates/plan-input.json`, `templates/analysis-input.json`, `templates/security-review-input.json` |
-| Script | `scripts/parse_appscan.py` (CSV + XML), `parse_sarif.py` (SARIF), `build_triage.py`, `make_plan.py`, `make_report.py`, `check_secrets.py` (`triage_contract.py` è un modulo interno) |
+| Script | `scripts/parse_appscan.py` (CSV + XML), `parse_sarif.py` (uno o più SARIF), `build_triage.py`, `make_plan.py`, `make_report.py`, `check_secrets.py` (`triage_contract.py` è un modulo interno) |
 
 ## Regole ferme
 
@@ -40,17 +40,17 @@ All'avvio **non cercare nulla sul disco**: nessuna ricerca, niente Glob, shell o
 
 Usa lo strumento di domande interattive di Claude Code (AskUserQuestion) con queste due opzioni. Se lo strumento di domande interattive non è disponibile, scrivi la stessa domanda in chat con le due risposte numerate e attendi la risposta.
 
-**«Li indico io».** Chiedi in un solo messaggio: la cartella dei sorgenti, il report dello scanner (il CSV AppScan, con l'XML AppScan facoltativo, **oppure** un file SARIF), il report SCA (facoltativo). **Non cercare nulla sul disco** prima di aver ricevuto i percorsi.
+**«Li indico io».** Chiedi in un solo messaggio: la cartella dei sorgenti, il report dello scanner (il CSV AppScan, con l'XML AppScan facoltativo, **oppure** uno o più file SARIF), il report SCA (facoltativo). **Non cercare nulla sul disco** prima di aver ricevuto i percorsi.
 
 **«Cercali tu nella cartella di lavoro».** Ricerca in sola lettura, **solo dentro la cartella di lavoro** (il progetto aperto): non guardare le cartelle superiori né altre posizioni del disco. La ricerca non parte mai se lo sviluppatore non sceglie questa modalità.
 
 - Sorgenti: proponi le cartelle di primo livello plausibili (escluse `.claude`, `.git`, `sast-output` e le cartelle nascoste o di dipendenze) e «Altro percorso».
-- Report dello scanner: proponi i `.csv` plausibili, riconosciuti dall'intestazione AppScan (`Issue Attributes`), e i `.sarif` (o `.sarif.json`) plausibili, riconosciuti da `"version": "2.1.0"` e dall'elenco `runs`; nella descrizione di ogni scelta indica il tipo (CSV AppScan o SARIF). Più «Altro percorso».
+- Report dello scanner: proponi i `.csv` plausibili, riconosciuti dall'intestazione AppScan (`Issue Attributes`), e i `.sarif` (o `.sarif.json`) plausibili, riconosciuti da `"version": "2.1.0"` e dall'elenco `runs`; nella descrizione di ogni scelta indica il tipo (CSV AppScan o SARIF). Più «Altro percorso». Questa domanda è a scelta multipla: si possono scegliere più SARIF, un solo CSV.
 - XML e SCA (facoltativi): proponi i candidati plausibili (XML con radice `xml-report`, utile solo con un CSV; HTML con le etichette SCA «ID problema» o «Issue ID»), «Nessuno» e «Altro percorso».
 - Presenta le scelte con lo strumento interattivo, in una sola chiamata con le quattro domande: al massimo 3 candidati per domanda, in ordine alfabetico di percorso, più «Nessuno» per XML e SCA; la risposta libera dello strumento vale «Altro percorso». Senza lo strumento: elenco numerato in chat, con «Altro percorso» e «Nessuno».
 - Se per sorgenti o report non trovi nulla di plausibile, dillo e chiedi il percorso.
 
-Servono sempre la **cartella dei sorgenti** e **un** report dello scanner, CSV AppScan o SARIF: se manca uno dei due, chiedilo e non fare altro. CSV e SARIF sono alternativi: se li ricevi entrambi, chiedi quale usare. Con il SARIF l'XML non serve (le tracce sono nei `codeFlows`): se è stato indicato, dillo e non usarlo.
+Servono sempre la **cartella dei sorgenti** e il report dello scanner, **un** CSV AppScan oppure **uno o più** SARIF: se manca uno dei due, chiedilo e non fare altro. CSV e SARIF sono alternativi: se li ricevi entrambi, chiedi quale usare. Più SARIF si leggono insieme; più CSV no: se ne ricevi più di uno, chiedi quale usare. Con il SARIF l'XML non serve (le tracce sono nei `codeFlows`): se è stato indicato, dillo e non usarlo.
 
 ## 2. Parsing e ispezione preliminare
 
@@ -63,12 +63,13 @@ python "scripts/parse_appscan.py" "<report.csv>" --sources "<sorgenti>" -o "<tri
 Con il SARIF:
 
 ```
-python "scripts/parse_sarif.py" "<report.sarif>" --sources "<sorgenti>" -o "<triage>/_work/parsed.json" [--sca "<sca>"]
+python "scripts/parse_sarif.py" "<report.sarif>" ["<altro.sarif>" ...] --sources "<sorgenti>" -o "<triage>/_work/parsed.json" [--sca "<sca>"]
 ```
 
 - Passa **sempre** `--sources`; XML e SCA solo se già forniti.
 - I due parser scrivono lo stesso `parsed.json`: da qui in poi il flusso non cambia.
 - SARIF: lo script ricava la gravità dello scanner (campo dello strumento, poi `security-severity`, poi `level`), risolve i nomi di classe di AppScan nei file dei sorgenti ed esclude i risultati soppressi nello strumento, quelli `absent` e quelli che non sono problemi (`pass`, `notApplicable`, `informational`), contandoli. Se ha escluso risultati soppressi, dillo nel «Contesto rilevato»: se lo sviluppatore li vuole nel triage, riesegui con `--include-suppressed`.
+- Più SARIF: una sola numerazione `AS-xxx`, nell'ordine dei file indicati. Un risultato già letto da un file precedente (stesso strumento, regola, file, riga e identificativo) conta una volta sola: lo script lo esclude e lo segnala. Il nome del report diventa l'elenco dei file uniti da « + » e la data è la più recente. Nel «Contesto rilevato» indica i file e gli eventuali duplicati esclusi.
 - Se esce con errore, fermati e spiega in italiano cosa correggere. Non rifare il parsing a mano.
 - Poi, in sola lettura: leggi `parsed.json`, individua stack, file di build e rilascio, e le famiglie candidate. Se `sources.not_found` è maggiore di 0, segnalalo: i sorgenti potrebbero non corrispondere alla scansione. Eccezione: nel CSV di AppScan i finding del codice compilato indicano la classe invece del file (es. `Azienda.Modulo.Classe.cs`, senza cartelle) e restano non trovati anche con i sorgenti giusti; `/sast-remediation` non può usarli. Se sono molti, dillo e suggerisci l'export SARIF della stessa scansione, che `parse_sarif.py` risolve nei file reali.
 - **Non** assegnare verdetti e **non** seguire i flussi dei dati.
@@ -87,7 +88,7 @@ Poi mostra «Contesto rilevato» (modello in `intake.md`): senza verdetti e senz
 
 Il piano **non lo scrivi tu**: lo genera uno script, così ha sempre le stesse sezioni (Input · Contesto · Scanner · Gruppi di analisi · Verifiche standard oltre lo scanner · Controlli trasversali · Punti aperti · Approvazione). La sezione delle verifiche standard termina con la riga della terza analisi, la security review di tutti i sorgenti. Tu fornisci solo i contenuti di giudizio, **senza verdetti**:
 
-1. Scrivi `<triage>/_work/plan-input.json` da `templates/plan-input.json`: contesto rilevato, gruppi di analisi (ogni finding in un solo gruppo, con un motivo breve), al massimo 3 controlli trasversali specifici del progetto, al massimo 2 punti aperti.
+1. Scrivi `<triage>/_work/plan-input.json` da `templates/plan-input.json`: contesto rilevato, gruppi di analisi (ogni finding in un solo gruppo, con un motivo breve; con più SARIF, i finding di strumenti diversi sullo stesso punto vanno nello stesso gruppo), al massimo 3 controlli trasversali specifici del progetto, al massimo 2 punti aperti.
 2. `python "scripts/make_plan.py" --parsed "<triage>/_work/parsed.json" --input "<triage>/_work/plan-input.json" -o "<triage>/PIANO_TRIAGE.md"`. Conteggi, id e metadati li calcola lo script. Se rifiuta i contenuti, correggili e rigenera: non modificare il file a mano.
 3. **Mostra in chat il contenuto completo di `PIANO_TRIAGE.md`**, identico al file appena generato: leggilo e riportalo per intero. **Non riassumerlo, non parafrasarlo, non sostituirlo con un messaggio più breve** e non aggiungere commenti o suggerimenti. Il file è la registrazione; la conversazione è il luogo in cui lo sviluppatore lo rivede. Le verifiche standard oltre lo scanner e la security review fanno parte del piano: servono all'approvazione. Il piano termina già con la domanda «Approvi il piano, vuoi modifiche o annulli?».
 

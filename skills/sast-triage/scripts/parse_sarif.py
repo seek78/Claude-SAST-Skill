@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
-"""Legge un report SAST in formato SARIF 2.1.0 (di AppScan o di un altro strumento) e scrive la stessa
+"""Legge uno o più report SAST in formato SARIF 2.1.0 (di AppScan o di altri strumenti) e scrive la stessa
 rappresentazione normalizzata in JSON di parse_appscan.py. È l'alternativa alla coppia CSV + XML di AppScan.
 
 Non assegna verdetti e non trae conclusioni di sicurezza: è la base su cui Claude lavora.
 
 Uso:
-  python parse_sarif.py REPORT.sarif -o parsed.json [--sources CARTELLA] [--sca REPORT.html] [--include-suppressed]
+  python parse_sarif.py REPORT.sarif [ALTRO.sarif ...] -o parsed.json [--sources CARTELLA] [--sca REPORT.html]
+                        [--include-suppressed]
 
-  REPORT.sarif          report SARIF 2.1.0: elenco AUTOREVOLE dei finding (obbligatorio)
+  REPORT.sarif          uno o più report SARIF 2.1.0: elenco AUTOREVOLE dei finding (obbligatorio)
   --sources             cartella dei sorgenti: i percorsi del report diventano relativi a essa
   --sca                 report SCA (HTML): ne ricava solo un breve riepilogo
   --include-suppressed  tiene anche i risultati soppressi nello strumento (di norma esclusi)
@@ -19,16 +20,20 @@ L'uscita ha il formato di parse_appscan.py (intermedio, NON è il contratto del 
 build_triage.py non cambiano. Differenze: "xml" è sempre null (le tracce vengono dai codeFlows del SARIF, nel campo
 "trace" del finding), file_match può valere anche "class", e c'è un riepilogo in più:
   "sarif": {"tools": ["nome versione"], "results": N,
-            "excluded": {"suppressed": n, "absent": n, "not_a_problem": n},
+            "files": [{"name": "nome.sarif", "results": n, "findings": n}],
+            "excluded": {"suppressed": n, "absent": n, "not_a_problem": n, "duplicate": n},
             "severity_from": {"tool": n, "security-severity": n, "level": n}}
 
-Quali risultati diventano finding (uno per risultato, tutte le run, nell'ordine del file):
+Quali risultati diventano finding (uno per risultato, nell'ordine dei file indicati e, in ciascuno, delle run):
   - kind "fail" (il valore predefinito), "open" o "review"; esclusi "pass", "notApplicable", "informational";
   - esclusi i risultati con baselineState "absent" (non più presenti nella scansione);
   - esclusi i risultati soppressi: almeno una soppressione "accepted" (anche senza status) e nessuna "underReview" o
-    "rejected"; con --include-suppressed restano.
-Gli id AS-001, AS-002... seguono quest'ordine e valgono solo per questo ciclo di triage/remediation, anche se il SARIF
-non viene da AppScan: il formato di triage.json non cambia.
+    "rejected"; con --include-suppressed restano;
+  - con più file, esclusi i duplicati: un risultato già letto da un file precedente (stesso strumento, regola, file,
+    riga e scanner_issue_id dato dallo strumento) conta una volta sola. Strumenti diversi sullo stesso punto restano
+    finding distinti.
+Gli id AS-001, AS-002... seguono quest'ordine, con una sola numerazione per tutti i file, e valgono solo per questo
+ciclo di triage/remediation, anche se il SARIF non viene da AppScan: il formato di triage.json non cambia.
 
 Campi:
   scanner_severity  scala Critical · High · Medium · Low · Informational, presa nell'ordine da:
@@ -39,7 +44,8 @@ Campi:
                     3) level: error High, warning Medium, note Low, none Informational, con i valori predefiniti
                        della specifica (level della regola, altrimenti "warning"; "none" se kind non è "fail").
   title             descrizione breve della regola, altrimenti il suo nome, altrimenti il messaggio, altrimenti ruleId
-  scanner_issue_id  guid, correlationGuid o la prima impronta (fingerprints, partialFingerprints) del risultato
+  scanner_issue_id  guid, correlationGuid o la prima impronta (fingerprints, partialFingerprints) del risultato;
+                    se mancano, la posizione nel file (run1/result5; con più file file2/run1/result5)
   cwe               proprietà o tag CWE di risultato e regola, relazioni e taxa verso la tassonomia CWE
   threat_class      proprietà "threatClass" o "IssueType" (AppScan), se presenti
   cause             messaggio del risultato (se diverso dal titolo) e posizione logica (es. il metodo sink di AppScan)
@@ -48,9 +54,10 @@ Campi:
                     qualificato (es. 'Azienda.Modulo.OrderRepository.cs' di AppScan) si risolve nel file della classe.
 
 Metadati (finiscono in triage.json, mai ricavati da date del file system né dall'orologio):
-  report        nome del file SARIF, senza cartelle
-  report_date   data (UTC) più recente dichiarata negli invocations (endTimeUtc, altrimenti startTimeUtc), AAAA-MM-GG;
-                null se manca (l'export SARIF di AppScan non la riporta)
+  report        nome del file SARIF, senza cartelle; con più file i nomi uniti da " + " nell'ordine indicato
+                (se due file hanno lo stesso nome, preceduti dalla cartella che li contiene)
+  report_date   data (UTC) più recente dichiarata negli invocations di tutti i file (endTimeUtc, altrimenti
+                startTimeUtc), AAAA-MM-GG; null se manca (l'export SARIF di AppScan non la riporta)
   project_name  nome dell'ultima cartella del percorso passato a --sources; null senza --sources
 I testi liberi sono accorciati e passano da una redazione dei segreti evidenti.
 """
@@ -352,7 +359,8 @@ def suppressed(result):
     return "accepted" in statuses and not any(s in ("underReview", "rejected") for s in statuses)
 
 
-def issue_id(result, run_no, result_no):
+def stable_id(result):
+    """Identificativo dato dallo strumento: guid, correlationGuid o la prima impronta; None se manca."""
     for key in ("guid", "correlationGuid"):
         value = result.get(key)
         if isinstance(value, str) and value.strip():
@@ -362,7 +370,7 @@ def issue_id(result, run_no, result_no):
         for k in sorted(prints):
             if isinstance(prints[k], str) and prints[k].strip():
                 return prints[k].strip()
-    return "run{0}/result{1}".format(run_no, result_no)
+    return None
 
 
 def utc_date(value):
@@ -407,81 +415,119 @@ def load_sarif(path):
         raise InputError("SARIF non leggibile ({0}): non è un JSON valido ({1}).".format(os.path.basename(path), e))
     except OSError as e:
         raise InputError("SARIF non leggibile ({0}): {1}".format(os.path.basename(path), e))
+    name = os.path.basename(path)
     if not isinstance(data, dict) or not isinstance(data.get("runs"), list):
-        raise InputError("Il file non sembra un SARIF: manca l'elenco 'runs'.")
+        raise InputError("Il file {0} non sembra un SARIF: manca l'elenco 'runs'.".format(name))
     if data.get("version") != SARIF_VERSION:
-        raise InputError("Versione SARIF non supportata: {0!r}. Serve SARIF {1}.".format(data.get("version"), SARIF_VERSION))
+        raise InputError("Versione SARIF non supportata in {0}: {1!r}. Serve SARIF {2}.".format(
+            name, data.get("version"), SARIF_VERSION))
     if not all(isinstance(run, dict) for run in data["runs"]):
-        raise InputError("Il SARIF contiene una run che non è un oggetto.")
+        raise InputError("Il SARIF {0} contiene una run che non è un oggetto.".format(name))
     return data
 
 
-def read_findings(runs, include_suppressed, resolve):
-    """Finding nello stesso formato di parse_appscan.py, più il riepilogo 'sarif'."""
-    findings, seen = [], Counter()
+def report_names(paths):
+    """Nome di ogni report per i metadati: il nome del file, con la cartella se due file hanno lo stesso nome."""
+    real = [os.path.normcase(os.path.realpath(p)) for p in paths]
+    for p, r in zip(paths, real):
+        if real.count(r) > 1:
+            raise InputError("Lo stesso file SARIF è indicato più volte: {0}".format(p))
+    names = [os.path.basename(p) for p in paths]
+    lower = [n.lower() for n in names]
+    names = ["{0}/{1}".format(os.path.basename(os.path.dirname(os.path.abspath(p))), n) if lower.count(n.lower()) > 1
+             else n for p, n in zip(paths, names)]
+    lower = [n.lower() for n in names]
+    for n in names:
+        if lower.count(n.lower()) > 1:
+            raise InputError("Più file SARIF hanno lo stesso nome anche con la cartella ({0}): rinominali per "
+                             "distinguerli nel report.".format(n))
+    return names
+
+
+def read_findings(files, include_suppressed, resolve):
+    """Finding nello stesso formato di parse_appscan.py, più il riepilogo 'sarif'.
+    files: [(nome, runs)] nell'ordine indicato. Un risultato già letto da un file precedente (stesso strumento,
+    regola, file, riga e identificativo dello strumento) è un duplicato: conta una volta sola."""
+    findings, seen, first_file = [], Counter(), {}
     excluded, sources_of_severity, unknown = Counter(), Counter(), Counter()
-    total = 0
-    for run_no, run in enumerate(runs, 1):
-        driver = as_dict(as_dict(run.get("tool")).get("driver"))
-        if "results" in run and not isinstance(run["results"], list):
-            raise InputError("Run #{0}: 'results' deve essere un elenco.".format(run_no))
-        for result_no, result in enumerate(as_list(run.get("results")), 1):
-            total += 1
-            if not isinstance(result, dict):
-                raise InputError("Run #{0}, risultato #{1}: non è un oggetto.".format(run_no, result_no))
-            if result.get("kind", "fail") not in PROBLEM_KINDS:
-                excluded["not_a_problem"] += 1
-                continue
-            if result.get("baselineState") == "absent":
-                excluded["absent"] += 1
-                continue
-            if suppressed(result) and not include_suppressed:
-                excluded["suppressed"] += 1
-                continue
-            rule = find_rule(run, result)
-            rule_id = result.get("ruleId") or as_dict(result.get("rule")).get("id") or rule.get("id") or ""
-            path, line, location = primary_location(result, run)
-            if not path:
-                raise InputError("Run #{0}, risultato #{1} ({2}): nessuna posizione fisica con un file "
-                                 "(physicalLocation): formato non supportato.".format(run_no, result_no, rule_id or "senza regola"))
-            message = message_text(result.get("message"), rule, driver)
-            title = title_of(rule, rule_id, message)
-            severity, source, raw = severity_of(result, rule)
-            sources_of_severity[source] += 1
-            if raw:
-                unknown[raw] += 1
-            ident = issue_id(result, run_no, result_no)
-            seen[ident] += 1
-            if seen[ident] > 1:
-                ident = "{0}#{1}".format(ident, seen[ident])
-            logical = logical_name(location)
-            cause = [m for m in (message if message.strip() != title.strip() else "",
-                                 logical if logical and norm_path(logical) != path else "") if m]
-            threat = prop((result.get("properties"), rule.get("properties")), ("threatclass", "issuetype"))
-            finding = {
-                "id": "AS-{0:03d}".format(len(findings) + 1),
-                "scanner_issue_id": ident,
-                "title": short(title, 120),
-                "scanner_severity": severity,
-                "cwe": cwe_of(result, rule, run),
-                "threat_class": short(str(threat), 80) if threat is not None else "",
-                "cause": short(" — ".join(cause)),
-                "file": path,
-                "line": line,
-            }
-            if resolve:
-                finding["file"], finding["file_match"] = resolve(path)
-            trace = trace_of(result, run, resolve)
-            if trace:
-                finding["trace"] = trace
-            findings.append(finding)
-    summary = {"tools": [], "results": total,
-               "excluded": {k: excluded[k] for k in ("suppressed", "absent", "not_a_problem")},
+    total, per_file = 0, []
+    many = len(files) > 1
+    for file_no, (name, runs) in enumerate(files, 1):
+        where = "{0}: ".format(name) if many else ""
+        read = kept = 0
+        for run_no, run in enumerate(runs, 1):
+            driver = as_dict(as_dict(run.get("tool")).get("driver"))
+            tool = driver.get("name") if isinstance(driver.get("name"), str) else ""
+            if "results" in run and not isinstance(run["results"], list):
+                raise InputError("{0}Run #{1}: 'results' deve essere un elenco.".format(where, run_no))
+            for result_no, result in enumerate(as_list(run.get("results")), 1):
+                total += 1
+                read += 1
+                if not isinstance(result, dict):
+                    raise InputError("{0}Run #{1}, risultato #{2}: non è un oggetto.".format(where, run_no, result_no))
+                if result.get("kind", "fail") not in PROBLEM_KINDS:
+                    excluded["not_a_problem"] += 1
+                    continue
+                if result.get("baselineState") == "absent":
+                    excluded["absent"] += 1
+                    continue
+                if suppressed(result) and not include_suppressed:
+                    excluded["suppressed"] += 1
+                    continue
+                rule = find_rule(run, result)
+                rule_id = result.get("ruleId") or as_dict(result.get("rule")).get("id") or rule.get("id") or ""
+                path, line, location = primary_location(result, run)
+                if not path:
+                    raise InputError("{0}Run #{1}, risultato #{2} ({3}): nessuna posizione fisica con un file "
+                                     "(physicalLocation): formato non supportato.".format(
+                                         where, run_no, result_no, rule_id or "senza regola"))
+                file, match = resolve(path) if resolve else (path, None)
+                stable = stable_id(result)
+                if stable and first_file.setdefault((tool, str(rule_id), file, line, stable), file_no) < file_no:
+                    excluded["duplicate"] += 1
+                    continue
+                message = message_text(result.get("message"), rule, driver)
+                title = title_of(rule, rule_id, message)
+                severity, source, raw = severity_of(result, rule)
+                sources_of_severity[source] += 1
+                if raw:
+                    unknown[raw] += 1
+                ident = stable or "{0}run{1}/result{2}".format("file{0}/".format(file_no) if many else "",
+                                                             run_no, result_no)
+                seen[ident] += 1
+                if seen[ident] > 1:
+                    ident = "{0}#{1}".format(ident, seen[ident])
+                logical = logical_name(location)
+                cause = [m for m in (message if message.strip() != title.strip() else "",
+                                     logical if logical and norm_path(logical) != path else "") if m]
+                threat = prop((result.get("properties"), rule.get("properties")), ("threatclass", "issuetype"))
+                finding = {
+                    "id": "AS-{0:03d}".format(len(findings) + 1),
+                    "scanner_issue_id": ident,
+                    "title": short(title, 120),
+                    "scanner_severity": severity,
+                    "cwe": cwe_of(result, rule, run),
+                    "threat_class": short(str(threat), 80) if threat is not None else "",
+                    "cause": short(" — ".join(cause)),
+                    "file": file,
+                    "line": line,
+                }
+                if resolve:
+                    finding["file_match"] = match
+                trace = trace_of(result, run, resolve)
+                if trace:
+                    finding["trace"] = trace
+                findings.append(finding)
+                kept += 1
+        per_file.append({"name": name, "results": read, "findings": kept})
+    summary = {"tools": [], "results": total, "files": per_file,
+               "excluded": {k: excluded[k] for k in ("suppressed", "absent", "not_a_problem", "duplicate")},
                "severity_from": {k: sources_of_severity[k] for k in ("tool", "security-severity", "level")}}
-    for run in runs:
-        name = tool_name(run)
-        if name not in summary["tools"]:
-            summary["tools"].append(name)
+    for _, runs in files:
+        for run in runs:
+            name = tool_name(run)
+            if name not in summary["tools"]:
+                summary["tools"].append(name)
     repeated = sum(n - 1 for n in seen.values() if n > 1)
     return findings, summary, unknown, repeated
 
@@ -490,22 +536,25 @@ def main(argv=None):
     for s in (sys.stdout, sys.stderr):
         s.reconfigure(errors="replace")   # niente crash su console con codifiche limitate
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("report", help="report SARIF 2.1.0 (obbligatorio)")
+    ap.add_argument("report", nargs="+", help="uno o più report SARIF 2.1.0 (obbligatorio)")
     ap.add_argument("-o", "--output", required=True, help="file JSON di uscita")
     ap.add_argument("--sources", help="cartella dei sorgenti")
     ap.add_argument("--sca", help="report SCA in HTML (facoltativo)")
     ap.add_argument("--include-suppressed", action="store_true",
                     help="tiene anche i risultati soppressi nello strumento (di norma esclusi)")
-    args = ap.parse_args(argv)
+    args = ap.parse_intermixed_args(argv)
+    many = len(args.report) > 1
+    the_sarif = "i SARIF" if many else "il SARIF"
 
     warnings = []
     try:
-        for label, p in (("Report SARIF", args.report), ("SCA", args.sca)):
+        for label, p in [("Report SARIF", r) for r in args.report] + [("SCA", args.sca)]:
             if p and not os.path.isfile(p):
                 raise InputError("{0} non trovato: {1}".format(label, p))
         if args.sources and not os.path.isdir(args.sources):
             raise InputError("Cartella dei sorgenti non trovata: {0}".format(args.sources))
-        runs = load_sarif(args.report)["runs"]
+        names = report_names(args.report)
+        files = [(name, load_sarif(p)["runs"]) for name, p in zip(names, args.report)]
         resolver = make_resolver(args.sources, class_names=True) if args.sources else None
         cache = {}
 
@@ -514,15 +563,17 @@ def main(argv=None):
                 cache[path] = resolver(path)
             return cache[path]
 
-        findings, summary, unknown, repeated = read_findings(runs, args.include_suppressed, resolve if resolver else None)
+        findings, summary, unknown, repeated = read_findings(files, args.include_suppressed, resolve if resolver else None)
         if not findings:
-            raise InputError("Il SARIF non contiene finding da valutare ({0} risultati letti, {1} esclusi).".format(
-                summary["results"], sum(summary["excluded"].values())))
-        warnings.append("il SARIF non dichiara il totale dei finding: controllo dei conteggi non possibile.")
-        report_date = read_report_date(runs)
+            raise InputError("{0} non {1} finding da valutare ({2} risultati letti, {3} esclusi).".format(
+                "I SARIF" if many else "Il SARIF", "contengono" if many else "contiene", summary["results"],
+                sum(summary["excluded"].values())))
+        warnings.append("{0} non {1} il totale dei finding: controllo dei conteggi non possibile.".format(
+            the_sarif, "dichiarano" if many else "dichiara"))
+        report_date = read_report_date([run for _, runs in files for run in runs])
         if report_date is None:
-            warnings.append("il SARIF non contiene una data del report affidabile (invocations): "
-                            "scanner_report_date sarà null.")
+            warnings.append("{0} non {1} una data del report affidabile (invocations): scanner_report_date sarà "
+                            "null.".format(the_sarif, "contengono" if many else "contiene"))
         sources = None
         if resolver:
             found = sum(1 for f in findings if f["file_match"] in ("path", "basename", "class"))
@@ -539,9 +590,15 @@ def main(argv=None):
     if summary["excluded"]["suppressed"]:
         warnings.append("{0} risultati soppressi nello strumento esclusi: per includerli riesegui con "
                         "--include-suppressed.".format(summary["excluded"]["suppressed"]))
+    if summary["excluded"]["duplicate"]:
+        warnings.append("{0} risultati già letti da un file precedente (stesso strumento, regola, file, riga e "
+                        "identificativo) contati una volta sola.".format(summary["excluded"]["duplicate"]))
+    for f in summary["files"]:
+        if many and not f["findings"]:
+            warnings.append("{0}: nessun finding da valutare ({1} risultati letti).".format(f["name"], f["results"]))
 
     by_sev = Counter(f["scanner_severity"] for f in findings)
-    out = {"report": os.path.basename(args.report),
+    out = {"report": " + ".join(names),
            "report_date": report_date,
            "project_name": project_name_of(args.sources),
            "counts": {"total": len(findings), "by_scanner_severity": dict(by_sev)},
@@ -552,6 +609,9 @@ def main(argv=None):
         fh.write(json.dumps(out, ensure_ascii=False, indent=2) + "\n")
 
     print("Strumento: {0}".format("; ".join(summary["tools"])))
+    if many:
+        print("File SARIF: {0}".format("; ".join("{name} {findings} finding su {results} risultati".format(**f)
+                                                 for f in summary["files"])))
     print("Finding letti: {0} ({1})".format(len(findings), ", ".join(
         "{0} {1}".format(s, by_sev[s]) for s in SEVERITIES if by_sev.get(s))))
     print("Gravità ricavata da: campo dello strumento {tool}, security-severity {security-severity}, "
@@ -559,7 +619,9 @@ def main(argv=None):
     ex = summary["excluded"]
     if any(ex.values()):
         print("Risultati esclusi: {0} soppressi, {1} non più presenti (absent), {2} che non sono problemi "
-              "(pass, notApplicable, informational)".format(ex["suppressed"], ex["absent"], ex["not_a_problem"]))
+              "(pass, notApplicable, informational){3}".format(
+                  ex["suppressed"], ex["absent"], ex["not_a_problem"],
+                  ", {0} duplicati di un file precedente".format(ex["duplicate"]) if many else ""))
     if sources:
         print("File trovati nei sorgenti: {0} su {1}".format(sources["found"], len(findings)))
     print("Tracce (codeFlows): {0} finding".format(sum(1 for f in findings if f.get("trace"))))
