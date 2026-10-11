@@ -1,0 +1,19 @@
+{
+  "context": {
+    "stack": ["<linguaggio e framework rilevati>"],
+    "exposure": "Internet | Rete interna | Solo locale | Non nota (un solo valore)",
+    "exposure_detail": "<dettaglio libero, anche vuoto>",
+    "release_model": "<come viene rilasciato>",
+    "constraints": ["<vincolo, o elenco vuoto>"],
+    "assumptions": ["<assunzione, o elenco vuoto>"]
+  },
+  "groups": [
+    {
+      "name": "<tipo o causa comune, al massimo 80 caratteri>",
+      "reason": "<perché stanno insieme: da verificare, al massimo 200 caratteri>",
+      "finding_ids": ["AS-001", "AS-002"]
+    }
+  ],
+  "transversal_checks": ["<controllo specifico del progetto, al massimo 3>"],
+  "open_points": ["<solo se rilevante, al massimo 2>"]
+}

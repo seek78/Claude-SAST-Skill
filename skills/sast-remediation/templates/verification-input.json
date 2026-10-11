@@ -1,0 +1,19 @@
+{
+  "finding_id": "AS-001",
+  "build_checks": [
+    { "check": "<compilazione o analisi statica>", "command": "<comando dedotto dal progetto>", "origin": "inferred" },
+    { "check": "<controllo per cui non si può dedurre un comando>", "command": "", "origin": "to_define" }
+  ],
+  "behavior_checks": ["<test o prova di comportamento e di sicurezza: da 1 a 6>"],
+  "data_format": {
+    "changed": false,
+    "writers": [],
+    "readers": [],
+    "validators": [],
+    "compatibility": [],
+    "migration_rollback": []
+  },
+  "rollback": ["<come si torna indietro: da 1 a 4>"],
+  "open_points": ["<solo se rilevante, al massimo 2>"],
+  "executed": []
+}
