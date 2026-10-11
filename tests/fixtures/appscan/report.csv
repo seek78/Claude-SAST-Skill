@@ -1,0 +1,15 @@
+﻿Report Attributes:
+Report Name,Report Date U T C,Total Issues In The Report
+Demo Shop,2026-01-15T10:30:00Z,5
+
+Issue Counters:
+Critical Issues,High Issues,Medium Issues,Low Issues,Informational Issues
+0,3,1,1,0
+
+Issue Attributes:
+Issue Id,Severity,Status,Issue Type Name,Source File,Line,Cwe,Threat Class,Cause
+6c1f3a52-0001-4a7e-9d1b-1a2b3c4d5e01,High,Open,"SQL Injection","C:\build\demo\Src\Demo.Shop\Persistence\OrderRepository.cs",17,89,"SQL Injection","Il testo di un comando SQL è composto con dati non validati"
+6c1f3a52-0002-4a7e-9d1b-1a2b3c4d5e02,High,Open,"SQL Injection","C:\build\demo\Src\Demo.Shop\Persistence\OrderRepository.cs",28,89,"SQL Injection","Il testo di un comando SQL è composto con dati non validati"
+6c1f3a52-0003-4a7e-9d1b-1a2b3c4d5e03,Medium,Open,"Weak cipher algorithm detected","C:\build\demo\Src\Demo.Shop\Infrastructure\Crypto.cs",9,327,"Information Leakage","Uso di un algoritmo di cifratura debole"
+6c1f3a52-0004-4a7e-9d1b-1a2b3c4d5e04,High,Open,"Debug mode enabled in ASP.NET project configuration","C:\build\demo\Src\Demo.Shop\Web.config",4,489,"Information Leakage","Modalità di debug attiva nella configurazione"
+6c1f3a52-0005-4a7e-9d1b-1a2b3c4d5e05,Low,Open,"Throwing generic exceptions in C#","C:\build\demo\Src\Demo.Shop\Services\ReportService.cs",11,388,"Application Quality","Viene sollevata un'eccezione generica"

@@ -1,0 +1,19 @@
+{
+  "finding_id": "AS-001",
+  "reason": "<una frase: perché il finding è confermato (dal triage)>",
+  "root_cause": ["<da 1 a 3 punti brevi>"],
+  "proposed_change": "<cosa cambia e perché, in poche righe; nessuna patch e nessun valore segreto>",
+  "delivery": [
+    { "file": "<percorso/relativo/File.ext>", "mode": "diff", "reason": "" },
+    { "file": "<percorso/relativo/Config.ext>", "mode": "proposto", "reason": "<perché il diff non è sicuro: contiene un segreto>" },
+    { "file": "<percorso/relativo/Altro.ext>", "mode": "istruzioni", "reason": "<perché neanche la proposta è emettibile>" }
+  ],
+  "compatibility": ["<vincolo, migrazione, fix collegato: al massimo 4, o elenco vuoto>"],
+  "legacy_paths": [
+    { "what": "<percorso di compatibilità, es. lettura del vecchio formato>", "removal_condition": "<quando va rimosso>" }
+  ],
+  "verification": ["<come si dimostra che il problema è chiuso e che il resto funziona: da 1 a 5>"],
+  "outside_code": ["<passo operativo fuori dal codice, es. rotazione di una credenziale: al massimo 4, o elenco vuoto>"],
+  "changes_data_format": false,
+  "open_points": ["<solo se rilevante, al massimo 2>"]
+}

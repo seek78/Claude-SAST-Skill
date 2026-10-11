@@ -1,0 +1,18 @@
+{
+  "context": {
+    "stack": ["C# .NET Framework 4.8", "ASP.NET MVC"],
+    "exposure": "Internet",
+    "exposure_detail": "Portale ordini pubblicato su IIS",
+    "release_model": "Pacchetto Web Deploy",
+    "constraints": [],
+    "assumptions": ["Esposizione Internet senza controlli a monte dichiarati."]
+  },
+  "groups": [
+    {"name": "SQL Injection", "reason": "Stesso repository: verificare se il flusso dei dati è lo stesso", "finding_ids": ["AS-001", "AS-002"]},
+    {"name": "Crittografia debole", "reason": "Algoritmo e chiave effettivi a runtime da verificare", "finding_ids": ["AS-003"]},
+    {"name": "Configurazione di debug", "reason": "Verificare la configurazione effettiva di rilascio", "finding_ids": ["AS-004"]},
+    {"name": "Gestione degli errori", "reason": "Eccezione generica: verificare dove finisce il messaggio", "finding_ids": ["AS-005"]}
+  ],
+  "transversal_checks": ["Verificare le trasformazioni di Web.config usate per il rilascio"],
+  "open_points": []
+}

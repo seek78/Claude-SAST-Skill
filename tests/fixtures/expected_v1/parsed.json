@@ -1,0 +1,104 @@
+{
+  "report": "report.csv",
+  "report_date": "2026-01-15",
+  "project_name": "demo",
+  "counts": {
+    "total": 5,
+    "by_scanner_severity": {
+      "High": 3,
+      "Medium": 1,
+      "Low": 1
+    }
+  },
+  "sources": {
+    "checked": true,
+    "found": 5,
+    "not_found": 0
+  },
+  "xml": {
+    "matched": 5,
+    "not_found": 0,
+    "ambiguous": 0,
+    "xml_only": 0
+  },
+  "sca_summary": null,
+  "findings": [
+    {
+      "id": "AS-001",
+      "scanner_issue_id": "6c1f3a52-0001-4a7e-9d1b-1a2b3c4d5e01",
+      "title": "SQL Injection",
+      "scanner_severity": "High",
+      "cwe": "89",
+      "threat_class": "SQL Injection",
+      "cause": "Il testo di un comando SQL è composto con dati non validati",
+      "file": "Src/Demo.Shop/Persistence/OrderRepository.cs",
+      "line": 17,
+      "file_match": "path",
+      "xml": "matched",
+      "trace": [
+        "Demo.Shop.Web.OrderController.Search(String):ActionResult @ repository.Find(term)",
+        "Demo.Shop.Persistence.OrderRepository.Find(String):IList @ string.Format(...)",
+        "System.Data.IDbCommand.set_CommandText(String):Void @ command.CommandText"
+      ]
+    },
+    {
+      "id": "AS-002",
+      "scanner_issue_id": "6c1f3a52-0002-4a7e-9d1b-1a2b3c4d5e02",
+      "title": "SQL Injection",
+      "scanner_severity": "High",
+      "cwe": "89",
+      "threat_class": "SQL Injection",
+      "cause": "Il testo di un comando SQL è composto con dati non validati",
+      "file": "Src/Demo.Shop/Persistence/OrderRepository.cs",
+      "line": 28,
+      "file_match": "path",
+      "xml": "matched",
+      "trace": [
+        "Demo.Shop.Web.OrderController.ById(Int32):ActionResult @ repository.FindById(id)",
+        "System.Data.IDbCommand.set_CommandText(String):Void @ command.CommandText"
+      ]
+    },
+    {
+      "id": "AS-003",
+      "scanner_issue_id": "6c1f3a52-0003-4a7e-9d1b-1a2b3c4d5e03",
+      "title": "Weak cipher algorithm detected",
+      "scanner_severity": "Medium",
+      "cwe": "327",
+      "threat_class": "Information Leakage",
+      "cause": "Uso di un algoritmo di cifratura debole",
+      "file": "Src/Demo.Shop/Infrastructure/Crypto.cs",
+      "line": 9,
+      "file_match": "path",
+      "xml": "matched",
+      "trace": []
+    },
+    {
+      "id": "AS-004",
+      "scanner_issue_id": "6c1f3a52-0004-4a7e-9d1b-1a2b3c4d5e04",
+      "title": "Debug mode enabled in ASP.NET project configuration",
+      "scanner_severity": "High",
+      "cwe": "489",
+      "threat_class": "Information Leakage",
+      "cause": "Modalità di debug attiva nella configurazione",
+      "file": "Src/Demo.Shop/Web.config",
+      "line": 4,
+      "file_match": "path",
+      "xml": "matched",
+      "trace": []
+    },
+    {
+      "id": "AS-005",
+      "scanner_issue_id": "6c1f3a52-0005-4a7e-9d1b-1a2b3c4d5e05",
+      "title": "Throwing generic exceptions in C#",
+      "scanner_severity": "Low",
+      "cwe": "388",
+      "threat_class": "Application Quality",
+      "cause": "Viene sollevata un'eccezione generica",
+      "file": "Src/Demo.Shop/Services/ReportService.cs",
+      "line": 11,
+      "file_match": "path",
+      "xml": "matched",
+      "trace": []
+    }
+  ]
+}

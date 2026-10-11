@@ -1,0 +1,238 @@
+{
+  "schema_version": "1.0",
+  "metadata": {
+    "project_name": "demo",
+    "scanner_report_name": "report.csv",
+    "scanner_report_date": "2026-01-15",
+    "toolkit_version": "1.0.0"
+  },
+  "context": {
+    "stack": [
+      "C# .NET Framework 4.8",
+      "ASP.NET MVC"
+    ],
+    "exposure": "Internet",
+    "exposure_detail": "Portale ordini pubblicato su IIS",
+    "release_model": "Pacchetto Web Deploy",
+    "constraints": [],
+    "assumptions": [
+      "Esposizione Internet senza controlli a monte dichiarati."
+    ]
+  },
+  "findings": [
+    {
+      "id": "AS-001",
+      "title": "SQL Injection",
+      "scanner_severity": "High",
+      "verdict": "High",
+      "defect_present": null,
+      "location": {
+        "file": "Src/Demo.Shop/Persistence/OrderRepository.cs",
+        "line": 17
+      },
+      "analysis_summary": "Il termine di ricerca arriva dalla query string e finisce nel testo SQL tramite string.Format: SQL injection raggiungibile senza autenticazione.",
+      "evidence": [
+        {
+          "file": "Src/Demo.Shop/Web/OrderController.cs",
+          "line": 13,
+          "note": "Search passa il parametro term al repository."
+        },
+        {
+          "file": "Src/Demo.Shop/Persistence/OrderRepository.cs",
+          "line": 17,
+          "note": "term inserito nel testo SQL con string.Format."
+        }
+      ],
+      "gates": {
+        "g1": "Azione MVC pubblica Search raggiungibile via HTTP.",
+        "g2": "term è un parametro della richiesta.",
+        "g3": "Il progetto Demo.Shop è incluso nel pacchetto di rilascio.",
+        "g4": "Lettura e modifica arbitraria del database."
+      },
+      "missing_evidence": []
+    },
+    {
+      "id": "AS-002",
+      "title": "SQL Injection",
+      "scanner_severity": "High",
+      "verdict": "False Positive",
+      "defect_present": true,
+      "location": {
+        "file": "Src/Demo.Shop/Persistence/OrderRepository.cs",
+        "line": 28
+      },
+      "analysis_summary": "Il valore inserito con string.Format è un intero: nessuna iniezione possibile. Resta un difetto reale (SQL composto a mano) senza impatto di sicurezza; lo scanner segnala lo schema string.Format su CommandText.",
+      "evidence": [
+        {
+          "file": "Src/Demo.Shop/Persistence/OrderRepository.cs",
+          "line": 28,
+          "note": "id è di tipo int."
+        }
+      ],
+      "gates": {
+        "g1": "FindById è chiamato da OrderController.ById.",
+        "g2": "id arriva dalla richiesta ma il model binding lo converte in int.",
+        "g3": "Codice incluso nel pacchetto di rilascio.",
+        "g4": "Un intero non può alterare la struttura della query."
+      },
+      "missing_evidence": []
+    },
+    {
+      "id": "AS-003",
+      "title": "Weak cipher algorithm detected",
+      "scanner_severity": "Medium",
+      "verdict": "Medium",
+      "defect_present": null,
+      "location": {
+        "file": "Src/Demo.Shop/Infrastructure/Crypto.cs",
+        "line": 9
+      },
+      "analysis_summary": "Crypto usa DES, algoritmo debole; la chiave è fornita dal chiamante. Impatto parziale: serve l'accesso ai dati cifrati.",
+      "evidence": [
+        {
+          "file": "Src/Demo.Shop/Infrastructure/Crypto.cs",
+          "line": 9,
+          "note": "new DESCryptoServiceProvider()."
+        }
+      ],
+      "gates": {
+        "g1": "CreateEncryptor è pubblico e usato dal progetto.",
+        "g2": "Chi accede all'archivio dei dati cifrati può tentare la decifratura.",
+        "g3": "Codice incluso nel pacchetto di rilascio.",
+        "g4": "DES è vulnerabile alla ricerca esaustiva della chiave."
+      },
+      "missing_evidence": []
+    },
+    {
+      "id": "AS-004",
+      "title": "Debug mode enabled in ASP.NET project configuration",
+      "scanner_severity": "High",
+      "verdict": "Unknown - Needs Review",
+      "defect_present": null,
+      "location": {
+        "file": "Src/Demo.Shop/Web.config",
+        "line": 4
+      },
+      "analysis_summary": "Web.config ha debug=true, ma non c'è una trasformazione di rilascio: il valore effettivo in esercizio non è noto.",
+      "evidence": [
+        {
+          "file": "Src/Demo.Shop/Web.config",
+          "line": 4,
+          "note": "compilation con debug attivo."
+        }
+      ],
+      "gates": {
+        "g1": "Configurazione letta da IIS all'avvio dell'applicazione.",
+        "g2": "",
+        "g3": "",
+        "g4": ""
+      },
+      "missing_evidence": [
+        "Manca la trasformazione di configurazione usata per il rilascio (Web.Release.config)."
+      ]
+    },
+    {
+      "id": "AS-005",
+      "title": "Throwing generic exceptions in C#",
+      "scanner_severity": "Low",
+      "verdict": "False Positive",
+      "defect_present": false,
+      "location": {
+        "file": "Src/Demo.Shop/Services/ReportService.cs",
+        "line": 11
+      },
+      "analysis_summary": "L'eccezione generica ha un messaggio statico e non espone dati; lo scanner segnala l'uso del tipo Exception.",
+      "evidence": [
+        {
+          "file": "Src/Demo.Shop/Services/ReportService.cs",
+          "line": 11,
+          "note": "throw new Exception con messaggio statico."
+        }
+      ],
+      "gates": {
+        "g1": "Render è chiamato dal flusso dei report.",
+        "g2": "Il ramo si attiva solo con un nome vuoto.",
+        "g3": "Codice incluso nel pacchetto di rilascio.",
+        "g4": "Il messaggio è statico: nessuna informazione utile a un attaccante."
+      },
+      "missing_evidence": []
+    }
+  ],
+  "additional_observations": [
+    {
+      "id": "OBS-001",
+      "title": "Nessun redirect da HTTP a HTTPS",
+      "verdict": "Low",
+      "location": {
+        "file": "Src/Demo.Shop/Web.config",
+        "line": 9
+      },
+      "analysis_summary": "Le regole di rewrite sono vuote: la configurazione del sito non forza HTTPS.",
+      "evidence": [
+        {
+          "file": "Src/Demo.Shop/Web.config",
+          "line": 9,
+          "note": "rules contiene solo clear."
+        }
+      ]
+    },
+    {
+      "id": "OBS-002",
+      "title": "Path traversal nel download dei report",
+      "verdict": "High",
+      "location": {
+        "file": "Src/Demo.Shop/Web/ReportController.cs",
+        "line": 13
+      },
+      "analysis_summary": "Security review: il nome del file arriva dalla richiesta e viene unito alla cartella dei report senza controlli, permettendo la lettura di file arbitrari.",
+      "evidence": [
+        {
+          "file": "Src/Demo.Shop/Web/ReportController.cs",
+          "line": 13,
+          "note": "Path.Combine con name non validato."
+        },
+        {
+          "file": "Src/Demo.Shop/Web/ReportController.cs",
+          "line": 14,
+          "note": "ReadAllBytes restituisce il contenuto del file."
+        }
+      ]
+    }
+  ],
+  "standard_checks": [
+    {
+      "area": "authentication_authorization",
+      "status": "not_verifiable",
+      "observation_ids": [],
+      "missing_evidence": [
+        "Configurazione IIS di esercizio non disponibile."
+      ]
+    },
+    {
+      "area": "secrets",
+      "status": "no_observation",
+      "observation_ids": [],
+      "missing_evidence": []
+    },
+    {
+      "area": "transport_cors",
+      "status": "confirmed_observation",
+      "observation_ids": [
+        "OBS-001"
+      ],
+      "missing_evidence": []
+    },
+    {
+      "area": "sql_commands",
+      "status": "no_observation",
+      "observation_ids": [],
+      "missing_evidence": []
+    },
+    {
+      "area": "cryptography",
+      "status": "no_observation",
+      "observation_ids": [],
+      "missing_evidence": []
+    }
+  ]
+}

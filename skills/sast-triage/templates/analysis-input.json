@@ -1,0 +1,78 @@
+{
+  "schema_version": "1.0",
+  "context": {
+    "stack": ["<linguaggio e framework>"],
+    "exposure": "Internet | Rete interna | Solo locale | Non nota (un solo valore)",
+    "exposure_detail": "<dettaglio libero sull'esposizione, anche vuoto>",
+    "release_model": "<come viene rilasciato>",
+    "constraints": ["<vincolo, o elenco vuoto>"],
+    "assumptions": ["<assunzione, o elenco vuoto>"]
+  },
+  "findings": [
+    {
+      "id": "AS-001",
+      "verdict": "Medium",
+      "defect_present": null,
+      "analysis_summary": "<perché questo verdetto, in poche righe>",
+      "evidence": [
+        { "file": "<percorso/relativo/File.ext>", "line": 42, "note": "<cosa si vede>" }
+      ],
+      "gates": {
+        "g1": "<prova di raggiungibilità>",
+        "g2": "<prova su chi controlla il dato>",
+        "g3": "<prova che il codice è nel rilascio>",
+        "g4": "<prova dell'effetto per un attaccante>"
+      },
+      "missing_evidence": []
+    },
+    {
+      "id": "AS-002",
+      "verdict": "False Positive",
+      "defect_present": false,
+      "analysis_summary": "<perché il finding è respinto; defect_present: true solo se esiste un difetto reale senza impatto di sicurezza, false se non c'è nessun difetto rilevante>",
+      "evidence": [
+        { "file": "<percorso/relativo/File.ext>", "line": 15, "note": "<cosa si vede>" }
+      ],
+      "gates": {
+        "g1": "<prova>",
+        "g2": "<prova>",
+        "g3": "<prova>",
+        "g4": "<prova>"
+      },
+      "missing_evidence": []
+    },
+    {
+      "id": "AS-003",
+      "verdict": "Unknown - Needs Review",
+      "defect_present": null,
+      "analysis_summary": "<cosa è stato stabilito e dove l'analisi si ferma>",
+      "evidence": [],
+      "gates": {
+        "g1": "<prova, se stabilita>",
+        "g2": "",
+        "g3": "",
+        "g4": ""
+      },
+      "missing_evidence": ["<cosa impedisce di chiudere>"]
+    }
+  ],
+  "additional_observations": [
+    {
+      "id": "OBS-001",
+      "title": "<titolo breve>",
+      "verdict": "Low",
+      "location": { "file": "<percorso/relativo/File.ext>", "line": 12 },
+      "analysis_summary": "<perché è un problema reale>",
+      "evidence": [
+        { "file": "<percorso/relativo/File.ext>", "line": 12, "note": "<cosa si vede>" }
+      ]
+    }
+  ],
+  "standard_checks": [
+    { "area": "authentication_authorization", "status": "confirmed_observation", "observation_ids": ["OBS-001"], "missing_evidence": [] },
+    { "area": "secrets", "status": "no_observation", "observation_ids": [], "missing_evidence": [] },
+    { "area": "transport_cors", "status": "not_verifiable", "observation_ids": [], "missing_evidence": ["<prova mancante, una frase breve>"] },
+    { "area": "sql_commands", "status": "no_observation", "observation_ids": [], "missing_evidence": [] },
+    { "area": "cryptography", "status": "no_observation", "observation_ids": [], "missing_evidence": [] }
+  ]
+}

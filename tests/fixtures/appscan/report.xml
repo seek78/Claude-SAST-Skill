@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xml-report name="Demo Shop">
+  <issue-group>
+    <item>
+      <asoc-issue-id>6c1f3a52-0001-4a7e-9d1b-1a2b3c4d5e01</asoc-issue-id>
+      <issue-type>Injection.SQL</issue-type>
+      <call-trace>
+        <call-invocation signature="Demo.Shop.Web.OrderController.Search(String):ActionResult"><highlight>repository.Find(term)</highlight></call-invocation>
+        <call-invocation signature="Demo.Shop.Persistence.OrderRepository.Find(String):IList"><highlight>string.Format(...)</highlight></call-invocation>
+        <call-invocation signature="System.Data.IDbCommand.set_CommandText(String):Void"><highlight>command.CommandText</highlight></call-invocation>
+      </call-trace>
+    </item>
+    <item>
+      <asoc-issue-id>6c1f3a52-0002-4a7e-9d1b-1a2b3c4d5e02</asoc-issue-id>
+      <issue-type>Injection.SQL</issue-type>
+      <call-trace>
+        <call-invocation signature="Demo.Shop.Web.OrderController.ById(Int32):ActionResult"><highlight>repository.FindById(id)</highlight></call-invocation>
+        <call-invocation signature="System.Data.IDbCommand.set_CommandText(String):Void"><highlight>command.CommandText</highlight></call-invocation>
+      </call-trace>
+    </item>
+    <item>
+      <asoc-issue-id>6c1f3a52-0003-4a7e-9d1b-1a2b3c4d5e03</asoc-issue-id>
+      <issue-type>Cryptography.InsecureAlgorithm</issue-type>
+    </item>
+    <item>
+      <asoc-issue-id>6c1f3a52-0004-4a7e-9d1b-1a2b3c4d5e04</asoc-issue-id>
+      <issue-type>Malicious.Debugger</issue-type>
+    </item>
+    <item>
+      <asoc-issue-id>6c1f3a52-0005-4a7e-9d1b-1a2b3c4d5e05</asoc-issue-id>
+      <issue-type>ErrorHandling</issue-type>
+    </item>
+  </issue-group>
+</xml-report>

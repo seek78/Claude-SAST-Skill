@@ -1,0 +1,18 @@
+{
+  "order": [
+    {
+      "finding_ids": ["AS-001"],
+      "reason": "<perché in questo ordine: rischio, dipendenza o vincolo, al massimo 200 caratteri>",
+      "depends_on": []
+    },
+    {
+      "finding_ids": ["AS-002", "AS-003"],
+      "reason": "<stesso flusso o stessa causa>",
+      "depends_on": ["AS-001"]
+    }
+  ],
+  "observations": [
+    { "id": "OBS-001", "reason": "<quando e perché affrontarla, al massimo 200 caratteri>" }
+  ],
+  "open_points": ["<solo se rilevante, al massimo 3>"]
+}

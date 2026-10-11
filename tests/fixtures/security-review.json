@@ -1,0 +1,37 @@
+{
+  "candidates": [
+    {
+      "title": "Path traversal nel download dei report",
+      "category": "path_traversal",
+      "area": "",
+      "location": {"file": "Src/Demo.Shop/Web/ReportController.cs", "line": 13},
+      "severity": "High",
+      "confidence": 9,
+      "outcome": "observation",
+      "ref": "OBS-002",
+      "reason": ""
+    },
+    {
+      "title": "SQL injection nella ricerca degli ordini",
+      "category": "sql_injection",
+      "area": "sql_commands",
+      "location": {"file": "Src/Demo.Shop/Persistence/OrderRepository.cs", "line": 17},
+      "severity": "High",
+      "confidence": 10,
+      "outcome": "duplicate",
+      "ref": "AS-001",
+      "reason": "Stesso flusso del finding AS-001."
+    },
+    {
+      "title": "Dettagli dell'eccezione mostrati all'utente",
+      "category": "data_exposure",
+      "area": "",
+      "location": {"file": "Src/Demo.Shop/Services/ReportService.cs", "line": 11},
+      "severity": "Low",
+      "confidence": 4,
+      "outcome": "discarded",
+      "ref": "",
+      "reason": "Messaggio statico senza dati sensibili: confidenza 4, sotto la soglia di 8."
+    }
+  ]
+}
