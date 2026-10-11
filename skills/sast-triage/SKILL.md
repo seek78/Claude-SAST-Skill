@@ -70,7 +70,7 @@ python "scripts/parse_sarif.py" "<report.sarif>" --sources "<sorgenti>" -o "<tri
 - I due parser scrivono lo stesso `parsed.json`: da qui in poi il flusso non cambia.
 - SARIF: lo script ricava la gravità dello scanner (campo dello strumento, poi `security-severity`, poi `level`), risolve i nomi di classe di AppScan nei file dei sorgenti ed esclude i risultati soppressi nello strumento, quelli `absent` e quelli che non sono problemi (`pass`, `notApplicable`, `informational`), contandoli. Se ha escluso risultati soppressi, dillo nel «Contesto rilevato»: se lo sviluppatore li vuole nel triage, riesegui con `--include-suppressed`.
 - Se esce con errore, fermati e spiega in italiano cosa correggere. Non rifare il parsing a mano.
-- Poi, in sola lettura: leggi `parsed.json`, individua stack, file di build e rilascio, e le famiglie candidate. Se `sources.not_found` è maggiore di 0, segnalalo: i sorgenti potrebbero non corrispondere alla scansione.
+- Poi, in sola lettura: leggi `parsed.json`, individua stack, file di build e rilascio, e le famiglie candidate. Se `sources.not_found` è maggiore di 0, segnalalo: i sorgenti potrebbero non corrispondere alla scansione. Eccezione: nel CSV di AppScan i finding del codice compilato indicano la classe invece del file (es. `Azienda.Modulo.Classe.cs`, senza cartelle) e restano non trovati anche con i sorgenti giusti; `/sast-remediation` non può usarli. Se sono molti, dillo e suggerisci l'export SARIF della stessa scansione, che `parse_sarif.py` risolve nei file reali.
 - **Non** assegnare verdetti e **non** seguire i flussi dei dati.
 
 ## 3. Contesto

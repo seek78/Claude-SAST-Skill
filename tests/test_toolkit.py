@@ -151,6 +151,27 @@ class TestOutputInvariato(Workspace):
                 got_sarif = got_sarif.replace(extra["sarif"], "<xml>")
             self.assertEqual(got_csv, got_sarif, name)
 
+    def test_nomi_di_classe_risolti_solo_dal_sarif(self):
+        """Scelta esplicita: il CSV resta identico alla v1, quindi un Source File con il nome di classe (export di
+        AppScan on Cloud per il codice compilato) non viene risolto; il SARIF della stessa scansione sì."""
+        rows = io.open(os.path.join(FIX, "appscan", "report.csv"), encoding="utf-8-sig", newline="").read()
+        report = self.path("classi.csv")
+        with io.open(report, "w", encoding="utf-8-sig", newline="") as fh:
+            fh.write(rows.replace("C:\\build\\demo\\Src\\Demo.Shop\\Persistence\\OrderRepository.cs",
+                                  "Demo.Shop.Persistence.OrderRepository.cs"))
+        out = self.path("parsed.json")
+        code, stdout, err = run(os.path.join(TRIAGE, "parse_appscan.py"), report, "--sources", DEMO, "-o", out)
+        self.assertEqual(code, 0, err)
+        csv = read_json(out)
+        self.assertEqual([(f["file"], f["file_match"]) for f in csv["findings"][:2]],
+                         [("Demo.Shop.Persistence.OrderRepository.cs", "not_found")] * 2)
+        self.assertEqual(csv["sources"], {"checked": True, "found": 3, "not_found": 2})
+        code, _, err = run(os.path.join(TRIAGE, "parse_sarif.py"), os.path.join(FIX, "appscan", "report.sarif"),
+                           "--sources", DEMO, "-o", out)
+        self.assertEqual(code, 0, err)
+        self.assertEqual([(f["file"], f["file_match"]) for f in read_json(out)["findings"][:2]],
+                         [("Src/Demo.Shop/Persistence/OrderRepository.cs", "class")] * 2)
+
     def test_remediation_legge_il_triage(self):
         for name, report, xml in (("csv", "report.csv", "report.xml"), ("sarif", "report.sarif", None)):
             triage = self.pipeline(name, os.path.join(FIX, "appscan", report), xml=os.path.join(FIX, "appscan", xml) if xml else None)
