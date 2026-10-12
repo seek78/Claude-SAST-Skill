@@ -1,5 +1,7 @@
 # SAST Claude Toolkit
 
+**Italiano** · [English](README.en.md)
+
 Strumento per rivalutare con Claude Code i risultati di una scansione SAST **HCL AppScan** (o di un altro strumento che esporta **SARIF**) e per preparare le correzioni, con un'approvazione esplicita dello sviluppatore a ogni passaggio importante.
 
 - Parte dai finding dello scanner e li **rivaluta sul codice sorgente**: la gravità dello scanner non è il verdetto.

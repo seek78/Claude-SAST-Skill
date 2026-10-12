@@ -1,5 +1,7 @@
 # SAST Claude Toolkit — Guida per sviluppatori
 
+**Italiano** · [English](DEVELOPER_GUIDE.md)
+
 ## 1. Cos'è SAST Claude Toolkit
 
 Il toolkit aiuta a rivalutare i risultati di una scansione SAST **HCL AppScan** (o di un altro strumento che esporta **SARIF**) confrontandoli con il codice sorgente e con le prove disponibili, e a preparare correzioni controllate.
